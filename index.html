@@ -3699,7 +3699,13 @@
         </div>
         
         <div class="header-right">
-          <div id="syncStatusIndicatorMobile" class="sync-status" style="display:none; white-space: pre-line;"></div>
+          ${(() => {
+            const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
+            const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
+            const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
+            const syncText = currentSyncStatusText || '';
+            return `<div id="syncStatusIndicatorMobile" class="${syncClass}" style="display:${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
+          })()}
         </div>
       </header>
       
@@ -3884,6 +3890,10 @@
     // --- Spreadsheets CRUD Data Engine ---
     function saveState() {
       localStorage.setItem('budget_tracker_sheet_data', JSON.stringify(state.data));
+      // Auto-upload changes to cloud if connected (Rule 3)
+      if (typeof autoUploadToCloud === 'function' && localStorage.getItem('budget_has_linked_google') === 'true') {
+        autoUploadToCloud();
+      }
       localStorage.setItem('budget_tracker_sidebar_collapsed', state.sidebarCollapsed ? 'true' : 'false');
       localStorage.setItem('budget_tracker_week_start', String(state.weekStart));
       localStorage.setItem('budget_tracker_hide_completed', state.hideCompleted ? 'true' : 'false');
@@ -4421,7 +4431,13 @@
         html = ''; // Do not display clock icon in collapsed state
       } else {
         html = `
-          <div id="syncStatusIndicatorSidebar" class="sync-status" style="display: none; white-space: pre-line; margin-bottom: 0.75rem; width: 100%; justify-content: center; font-size: 0.8rem; padding: 0.5rem; text-align: center; border-radius: 8px;"></div>
+          ${(() => {
+            const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
+            const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
+            const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
+            const syncText = currentSyncStatusText || '';
+            return `<div id="syncStatusIndicatorSidebar" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line; margin-bottom: 0.75rem; width: 100%; justify-content: center; font-size: 0.8rem; padding: 0.5rem; text-align: center; border-radius: 8px;">${syncText}</div>`;
+          })()}
           <div class="today-widget-card">
             <div class="today-widget-card-content">
               <p class="today-label">Today</p>
@@ -4596,7 +4612,13 @@
               <h1 class="page-title" style="margin-bottom: 0;">My Budgets</h1>
               <p class="page-subtitle" style="margin-top: 0.25rem;">Historical snapshots and future planning cycles.</p>
             </div>
-            <div id="syncStatusIndicator" class="sync-status" style="display: none; white-space: pre-line;"></div>
+            ${(() => {
+              const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
+              const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
+              const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
+              const syncText = currentSyncStatusText || '';
+              return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
+            })()}
           </header>
           <div class="budgets-grid">
             ${cardsHtml}
@@ -5061,7 +5083,13 @@
                 style="font-family: var(--font-display); box-shadow: var(--shadow-sm) !important;">
                 ${getIconSVG('Trash2', 13, 2.5)} Delete
               </button>
-              <div id="syncStatusIndicator" class="sync-status" style="display: none; white-space: pre-line;"></div>
+              ${(() => {
+                const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
+                const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
+                const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
+                const syncText = currentSyncStatusText || '';
+                return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
+              })()}
             </div>
           </header>
           
@@ -5369,7 +5397,13 @@
               <button class="btn btn-primary" onclick="openAddTransactionModal()">
                 ${getIconSVG('Plus', 16, 2.5)} Add Transaction
               </button>
-              <div id="syncStatusIndicator" class="sync-status" style="display: none; white-space: pre-line;"></div>
+              ${(() => {
+                const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
+                const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
+                const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
+                const syncText = currentSyncStatusText || '';
+                return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
+              })()}
             </div>
           </header>
           
@@ -5471,7 +5505,13 @@
         <div class="page-container">
           <header class="page-header" style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <h1 class="page-title" style="font-size: 1.875rem; font-weight: 900; letter-spacing: -0.025em; margin: 0;">Goal Tracker</h1>
-            <div id="syncStatusIndicator" class="sync-status" style="display: none; white-space: pre-line;"></div>
+            ${(() => {
+              const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
+              const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
+              const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
+              const syncText = currentSyncStatusText || '';
+              return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
+            })()}
           </header>
           
           <!-- Stats Summary -->
@@ -5657,7 +5697,13 @@
                 ${getIconSVG('Calendar', 14, 2.5)}
                 <span>${weekStartVal === 0 ? 'Starts Sun' : 'Starts Mon'}</span>
               </button>
-              <div id="syncStatusIndicator" class="sync-status" style="display: none; white-space: pre-line;"></div>
+              ${(() => {
+                const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
+                const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
+                const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
+                const syncText = currentSyncStatusText || '';
+                return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
+              })()}
             </div>
           </header>
           
@@ -5788,7 +5834,13 @@
         <div class="page-container">
           <header class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
             <h1 class="page-title" style="margin: 0;">Settings</h1>
-            <div id="syncStatusIndicator" class="sync-status" style="display: none; white-space: pre-line;"></div>
+            ${(() => {
+              const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
+              const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
+              const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
+              const syncText = currentSyncStatusText || '';
+              return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
+            })()}
           </header>
           
           <!-- Basic parameters -->
@@ -5865,12 +5917,22 @@
                   </h3>
                   <p class="backup-desc" style="margin-bottom: 1.5rem;">Backup data on your Google Drive</p>
                   
-                  <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: auto; width: 100%;">
-                    <button id="authBtn" class="btn btn-primary" onclick="handleAuthClick()" style="width: 100%; justify-content: center;">
-                      Connect to Google Drive
-                    </button>
-                    <div id="syncStatusIndicatorSetup" class="sync-status" style="display: none; white-space: pre-line; width: 100%; justify-content: center; font-size: 0.8rem; padding: 0.5rem; text-align: center; border-radius: 8px;"></div>
-                  </div>
+                  ${(() => {
+                    const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
+                    const authBtnText = isLinked ? 'Disconnect' : 'Connect to Google Drive';
+                    const authBtnClass = isLinked ? 'btn btn-danger' : 'btn btn-primary';
+                    const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
+                    const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
+                    const syncText = currentSyncStatusText || '';
+                    return `
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: auto; width: 100%;">
+                      <button id="authBtn" class="${authBtnClass}" onclick="handleAuthClick()" style="width: 100%; justify-content: center;">
+                        ${authBtnText}
+                      </button>
+                      <div id="syncStatusIndicatorSetup" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line; width: 100%; justify-content: center; font-size: 0.8rem; padding: 0.5rem; text-align: center; border-radius: 8px;">${syncText}</div>
+                    </div>
+                    `;
+                  })()}
                   <p style="font-size: 0.75rem; color: var(--slate-400); margin-top: 0.75rem; line-height: 1.4;">
                     Connect using the same account on other devices for automatic sync. Mobile/tablet needs to be reconnected after one hour.
                   </p>
@@ -7000,6 +7062,10 @@
     // =========================================================================
     let databaseArray = []; // Mirror for synchronization logic
     
+    // Global tracking of sync status for re-render preservation
+    let currentSyncStatusText = (localStorage.getItem('budget_has_linked_google') === 'true') ? "Connecting to Drive..." : "";
+    let currentSyncStatusType = (localStorage.getItem('budget_has_linked_google') === 'true') ? "active" : "";
+
     const CLIENT_ID = '305632493984-9q07n0i677ku1btdds1scke8pam5ag3s.apps.googleusercontent.com';
     const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 
@@ -7026,6 +7092,8 @@
     }
 
     function setSyncStatus(text, type = '') {
+        currentSyncStatusText = text;
+        currentSyncStatusType = type;
         const ids = ['syncStatusIndicator', 'syncStatusIndicatorSetup', 'syncStatusIndicatorMobile', 'syncStatusIndicatorSidebar'];
         ids.forEach(id => {
             const el = document.getElementById(id);
@@ -7218,10 +7286,6 @@
                 if (remotePayload && remotePayload.records) {
                     const cloudRecords = remotePayload.records;
                     
-                    // Simple full payload override (since whole spreadsheet state is synced as index list)
-                    // But let's build the map to compare timestamp version envelopes if needed,
-                    // or just check if it matches target structures.
-                    // For the spreadsheet engine: we merge the records list.
                     const mergedMap = new Map();
                     cloudRecords.forEach(item => mergedMap.set(item.index_ || item.id, item));
 
@@ -7231,15 +7295,10 @@
                         const key = localItem.index_;
                         const cloudItem = mergedMap.get(key);
                         
-                        // Check if local has newer modification or doesn't exist on cloud
                         if (!cloudItem) {
                             mergedMap.set(key, localItem);
                             localHasNewerEdits = true;
                         } else {
-                            // If remote item row differs or remote has empty, local can win
-                            // For simplicity, sheet merge: remote wins unless local item has newer timestamp
-                            // If local row is not equal to remote row, remote wins.
-                            // We can check if remote is structurally newer:
                             if (localItem.updatedAt && cloudItem.updatedAt && localItem.updatedAt > cloudItem.updatedAt) {
                                 mergedMap.set(key, localItem);
                                 localHasNewerEdits = true;
@@ -7251,7 +7310,7 @@
                     
                     // BRIDGE: Write back merged records into state engine
                     state.data = finalMergedRecords;
-                    saveState();
+                    localStorage.setItem('budget_tracker_sheet_data', JSON.stringify(state.data)); // Fast local save without triggering autoUpload infinite loops
                     render();
 
                     databaseArray = finalMergedRecords;
