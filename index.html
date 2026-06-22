@@ -4882,7 +4882,9 @@
             let localHasNewerEdits = false;
             databaseArray.forEach(localItem => {
               const cloudItem = mergedMap.get(localItem.id);
-              if (!cloudItem || (localItem.updatedAt > (cloudItem.updatedAt || 0))) {
+              const localTime = Number(localItem.updatedAt || 0);
+              const cloudTime = cloudItem ? Number(cloudItem.updatedAt || 0) : 0;
+              if (!cloudItem || localTime > cloudTime) {
                 mergedMap.set(localItem.id, localItem);
                 localHasNewerEdits = true;
               }
@@ -5034,11 +5036,39 @@
     }
     function clearAllData() {
       if (confirm("Are you sure you want to clear all data? This will reset your budget database to factory defaults, deleting all custom transactions, goals, and budget periods. This cannot be undone.")) {
-        databaseArray = initializeDefaultDatabaseArray();
+        const maxExistingTime = databaseArray.reduce((max, rec) => Math.max(max, Number(rec.updatedAt || 0)), 0);
+        const newTimestamp = Math.max(Date.now(), maxExistingTime + 1);
+
+        const defaults = initializeDefaultData();
+        const defaultMap = new Map();
+        defaults.forEach(d => {
+          defaultMap.set('budget_rows_' + d.index_, d.row);
+        });
+
+        databaseArray = databaseArray.map(rec => {
+          const id = rec.id;
+          const defaultRow = defaultMap.get(id);
+          if (defaultRow) {
+            return {
+              ...rec,
+              updatedAt: newTimestamp,
+              deleted: false,
+              data: {
+                index_: rec.data.index_,
+                row: [...defaultRow]
+              }
+            };
+          } else {
+            return {
+              ...rec,
+              updatedAt: newTimestamp,
+              deleted: true
+            };
+          }
+        });
+
         updateDataState(databaseArray, true);
-        if (localStorage.getItem('simplebudget_has_linked_google') === 'true') {
-          autoUploadToCloud();
-        }
+        pullAndMergeCloudData();
         alert("All application data has been cleared and reset to defaults. 🧹");
       }
     }
@@ -5202,6 +5232,9 @@
       const updatedMap = new Map();
       databaseArray.forEach(rec => updatedMap.set(rec.id, rec));
 
+      const maxExistingTime = databaseArray.reduce((max, rec) => Math.max(max, Number(rec.updatedAt || 0)), 0);
+      let nextTimestamp = Math.max(Date.now(), maxExistingTime + 1);
+
       state.data.forEach(d => {
         const id = 'budget_rows_' + d.index_;
         const existing = updatedMap.get(id);
@@ -5211,7 +5244,7 @@
           updatedMap.set(id, {
             id: id,
             table: 'budget_rows',
-            updatedAt: Date.now(),
+            updatedAt: nextTimestamp++,
             deleted: false,
             data: {
               index_: d.index_,
