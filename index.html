@@ -4297,21 +4297,42 @@
       }
   });
 
-  function updateDataState(newData, saveLocal = true) {
+  function updateDataState(newData, saveLocal = true, triggerRender = true) {
       databaseArray = newData;
+      
+      // Ensure config_basic has defaults
+      let configRecord = databaseArray.find(r => r.id === 'config_basic');
+      if (!configRecord) {
+        configRecord = {
+          id: 'config_basic',
+          table: 'config_basic',
+          updatedAt: 0,
+          deleted: false,
+          data: { userName: '', currency: '$', startBalance: 0, startDayOfWeek: 1, hideCompleted: false }
+        };
+        databaseArray.push(configRecord);
+      } else {
+        let updated = false;
+        if (configRecord.data.startDayOfWeek === undefined) {
+          configRecord.data.startDayOfWeek = 1;
+          updated = true;
+        }
+        if (configRecord.data.hideCompleted === undefined) {
+          configRecord.data.hideCompleted = false;
+          updated = true;
+        }
+        if (updated) {
+          configRecord.updatedAt = Date.now();
+        }
+      }
+
       if (saveLocal) {
           localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
       }
-      render();
+      if (triggerRender) {
+          render();
+      }
   }
-
-  // --- Global State Mirroring spreadsheet indexes ---
-  const tIdx = { date: 0, cat: 1, sub: 2, amt: 3, notes: 4 };
-    const sIdx = { cat: 7, sub: 8 };
-    const bIdx = { cur: 10, bal: 11, name: 12 };
-    const gIdx = { cat: 14, sub: 15, goal: 16, saved: 17 };
-    const cIdx = { cat: 20, sub: 21, freq: 22, start: 23, end: 24, ticked: 25 };
-    const bdIdx = { start: 26, end: 27, cat: 28, sub: 29, budget: 30 };
 
     const CATEGORIES = ['Income', 'Savings', 'Bills', 'Debt', 'Expense'];
     const CAT_COLORS = {
@@ -4335,7 +4356,6 @@
       activeTab: 'budgets',
       activeBudgetPeriodId: null,
       sidebarCollapsed: false,
-      data: [],
       
       // Transactions Tab Search & Filter state
       txSearch: '',
@@ -4346,8 +4366,6 @@
       
       // Calendar view state
       calDate: new Date(),
-      hideCompleted: false,
-      weekStart: 0,
       
       // Budget planning & modification state
       tempBudget: null,
@@ -4465,44 +4483,9 @@
         d1.getDate() === d2.getDate();
     }
 
-    // --- Spreadsheets CRUD Data Engine ---
-    function saveState() {
-      localStorage.setItem('budget_tracker_sheet_data', JSON.stringify(state.data));
+    // --- UI State Persistence (local only, not synced) ---
+    function saveUIState() {
       localStorage.setItem('budget_tracker_sidebar_collapsed', state.sidebarCollapsed ? 'true' : 'false');
-      localStorage.setItem('budget_tracker_week_start', String(state.weekStart));
-      localStorage.setItem('budget_tracker_hide_completed', state.hideCompleted ? 'true' : 'false');
-    }
-
-    function updateItem(index_, patch) {
-      const rowObj = state.data.find(d => d.index_ === index_);
-      if (rowObj) {
-        for (let i = 0; i < patch.length; i++) {
-          if (patch[i] !== undefined) {
-            rowObj.row[i] = patch[i];
-          }
-        }
-        saveState();
-        render();
-      }
-    }
-
-    function insertItem(undefinedParam, patch) {
-      const maxIndex = state.data.reduce((max, d) => d.index_ > max ? d.index_ : max, 0);
-      const newIndex = maxIndex + 1;
-      const newRow = Array(35).fill(null);
-      for (let i = 0; i < patch.length; i++) {
-        if (patch[i] !== undefined) {
-          newRow[i] = patch[i];
-        }
-      }
-      state.data.push({ index_: newIndex, row: newRow });
-      saveState();
-      render();
-    }
-
-    function findAvailableRowInTable(primaryColIndex) {
-      const emptyRow = state.data.find(d => d.index_ > 0 && (!d.row[primaryColIndex] || d.row[primaryColIndex] === ""));
-      return emptyRow ? emptyRow.index_ : -1;
     }
 
     // --- Get Config Helpers ---
@@ -4512,20 +4495,16 @@
         return {
           currency: configRecord.data.currency || '$',
           startBalance: parseFloat(configRecord.data.startBalance) || 0,
-          userName: configRecord.data.userName || ''
+          userName: configRecord.data.userName || '',
+          startDayOfWeek: configRecord.data.startDayOfWeek !== undefined ? configRecord.data.startDayOfWeek : 1,
+          hideCompleted: configRecord.data.hideCompleted || false
         };
       }
-      return {
-        currency: '$',
-        startBalance: 0,
-        userName: ''
-      };
+      return { currency: '$', startBalance: 0, userName: '', startDayOfWeek: 1, hideCompleted: false };
     }
 
     function formatMoney(amount, symbol) {
-      if (symbol === undefined) {
-        symbol = getConfig().currency;
-      }
+      if (symbol === undefined) { symbol = getConfig().currency; }
       const isNegative = amount < 0;
       const formatted = Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
       return (isNegative ? '-' : '') + symbol + formatted;
@@ -4539,7 +4518,7 @@
           const cat = r.data.category;
           const sub = r.data.subcategory;
           if (cat && sub && subs[cat]) {
-            subs[cat].push({ name: sub, index_: r.id });
+            subs[cat].push({ name: sub, id: r.id });
           }
         }
       });
@@ -4547,15 +4526,15 @@
     }
 
     function getTransactions() {
-      return state.data.slice(1)
-        .filter(d => d.row[tIdx.date] && d.row[tIdx.amt] !== null)
-        .map(d => ({
-          index_: d.index_,
-          parsedDate: parseCellDate(d.row[tIdx.date]),
-          amount: parseFloat(d.row[tIdx.amt]) || 0,
-          category: d.row[tIdx.cat],
-          subcategory: d.row[tIdx.sub],
-          notes: d.row[tIdx.notes] || ''
+      return databaseArray
+        .filter(r => r.table === 'transactions' && !r.deleted)
+        .map(r => ({
+          id: r.id,
+          parsedDate: parseCellDate(r.data.date),
+          amount: parseFloat(r.data.amount) || 0,
+          category: r.data.category,
+          subcategory: r.data.subcategory,
+          notes: r.data.notes || ''
         }))
         .sort((a, b) => (b.parsedDate?.getTime() || 0) - (a.parsedDate?.getTime() || 0));
     }
@@ -4571,61 +4550,39 @@
     }
 
     function getGoalsList(txs) {
-      return state.data.slice(1)
-        .filter(d => d.row[gIdx.cat] && d.row[gIdx.sub])
-        .map(d => {
-          const category = d.row[gIdx.cat];
-          const subcategory = d.row[gIdx.sub];
-          const goal = parseFloat(d.row[gIdx.goal]) || 0;
-          const saved = txs.filter(t => t.category === category && t.subcategory === subcategory).reduce((sum, t) => sum + t.amount, 0);
-          return {
-            index_: d.index_,
-            category,
-            subcategory,
-            goal,
-            saved
-          };
+      return databaseArray
+        .filter(r => r.table === 'goals' && !r.deleted)
+        .map(r => {
+          const saved = txs.filter(t => t.category === r.data.category && t.subcategory === r.data.subcategory).reduce((sum, t) => sum + t.amount, 0);
+          return { id: r.id, category: r.data.category, subcategory: r.data.subcategory, goal: parseFloat(r.data.goal) || 0, saved };
         });
     }
 
     function getBills() {
-      return state.data.slice(1)
-        .filter(d => d.row[cIdx.cat] && d.row[cIdx.sub])
-        .map(d => ({
-          index_: d.index_,
-          category: d.row[cIdx.cat],
-          subcategory: d.row[cIdx.sub],
-          frequency: d.row[cIdx.freq] || 'Monthly',
-          start: parseCellDate(d.row[cIdx.start]),
-          end: parseCellDate(d.row[cIdx.end]),
-          ticked: d.row[cIdx.ticked] ? String(d.row[cIdx.ticked]).split(',').map(s => s.trim()).filter(Boolean) : []
+      return databaseArray
+        .filter(r => r.table === 'bills' && !r.deleted)
+        .map(r => ({
+          id: r.id,
+          category: r.data.category,
+          subcategory: r.data.subcategory,
+          frequency: r.data.frequency || 'Monthly',
+          start: parseCellDate(r.data.start),
+          end: parseCellDate(r.data.end),
+          ticked: r.data.ticked ? String(r.data.ticked).split(',').map(s => s.trim()).filter(Boolean) : []
         }));
     }
 
     function getBudgetPeriods(txs) {
       const periods = [];
-      state.data.slice(1).forEach(d => {
-        const startVal = d.row[bdIdx.start];
-        const endVal = d.row[bdIdx.end];
-        if (startVal && endVal) {
-          const startDate = parseCellDate(startVal);
-          const endDate = parseCellDate(endVal);
-          if (!startDate || !endDate || startDate.getFullYear() <= 1900) return;
-
-          const id = `${formatISODate(startDate)}_${formatISODate(endDate)}`;
-          let p = periods.find(x => x.id === id);
-          if (!p) {
-            p = { id, start: startDate, end: endDate, settings: [] };
-            periods.push(p);
-          }
-          if (d.row[bdIdx.cat] && d.row[bdIdx.sub]) {
-            p.settings.push({
-              category: d.row[bdIdx.cat],
-              subcategory: d.row[bdIdx.sub],
-              amount: parseFloat(d.row[bdIdx.budget]) || 0,
-              index_: d.index_
-            });
-          }
+      databaseArray.filter(r => r.table === 'budgets' && !r.deleted).forEach(r => {
+        const startDate = parseCellDate(r.data.periodStart);
+        const endDate = parseCellDate(r.data.periodEnd);
+        if (!startDate || !endDate || startDate.getFullYear() <= 1900) return;
+        const id = `${formatISODate(startDate)}_${formatISODate(endDate)}`;
+        let p = periods.find(x => x.id === id);
+        if (!p) { p = { id, start: startDate, end: endDate, settings: [] }; periods.push(p); }
+        if (r.data.category && r.data.subcategory) {
+          p.settings.push({ id: r.id, category: r.data.category, subcategory: r.data.subcategory, amount: parseFloat(r.data.amount) || 0 });
         }
       });
       return periods.sort((a, b) => (b.start?.getTime() || 0) - (a.start?.getTime() || 0));
@@ -4676,20 +4633,26 @@
       });
     }
 
-    function toggleBillStatus(billIndex, occurrenceDate) {
+    function toggleBillStatus(billId, occurrenceDate) {
       const dateStr = formatISODate(occurrenceDate);
-      const rowObj = state.data.find(d => d.index_ === billIndex);
-      if (!rowObj) return;
-      const row = rowObj.row;
-      let tickedArray = row[cIdx.ticked] ? String(row[cIdx.ticked]).split(',').map(s => s.trim()).filter(Boolean) : [];
-      if (tickedArray.includes(dateStr)) {
-        tickedArray = tickedArray.filter(d => d !== dateStr);
-      } else {
-        tickedArray.push(dateStr);
-      }
-      const patch = Array(35).fill(undefined);
-      patch[cIdx.ticked] = tickedArray.join(',');
-      updateItem(billIndex, patch);
+      databaseArray = databaseArray.map(record => {
+        if (record.id === billId) {
+          let tickedArray = record.data.ticked ? String(record.data.ticked).split(',').map(s => s.trim()).filter(Boolean) : [];
+          if (tickedArray.includes(dateStr)) {
+            tickedArray = tickedArray.filter(d => d !== dateStr);
+          } else {
+            tickedArray.push(dateStr);
+          }
+          return {
+            ...record,
+            updatedAt: Date.now(),
+            data: { ...record.data, ticked: tickedArray.join(',') }
+          };
+        }
+        return record;
+      });
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
     }
 
     function getPeriodHeading(start, end) {
@@ -4868,9 +4831,7 @@
       const valEl = document.getElementById(chartId + '-value');
       if (labelEl) labelEl.textContent = 'TOTAL';
       if (valEl) valEl.textContent = formatMoney(totalValue);
-      
-      const svg = document.getElementById(chartId);
-      if (svg) {
+        if (svg) {
         svg.querySelectorAll('.chart-slice').forEach(p => {
           p.style.opacity = '1';
           p.style.transform = '';
@@ -4878,58 +4839,13 @@
       }
     };
 
-    // --- Default State Initializer ---
-    function initializeDefaultData() {
-      const defaultData = [];
-      
-      // Index 1 is Config
-      const configRow = Array(35).fill(null);
-      configRow[bIdx.cur] = '$';
-      configRow[bIdx.bal] = 0;
-      configRow[bIdx.name] = '';
-      defaultData.push({ index_: 1, row: configRow });
-      
-      // No pre-loaded categories, goals, bills, budgets, or transactions
-      let idx = 2;
-      
-      // Add empty rows up to row index 200 to allow space for insertions
-      for (let i = idx; i <= 200; i++) {
-        defaultData.push({ index_: i, row: Array(35).fill(null) });
-      }
-      
-      return defaultData;
-    }
-
     // --- State Loading / Startup System ---
     function loadState() {
-      const stored = localStorage.getItem('budget_tracker_sheet_data');
-      if (stored) {
-        try {
-          state.data = JSON.parse(stored);
-        } catch (e) {
-          state.data = initializeDefaultData();
-        }
-      } else {
-        state.data = initializeDefaultData();
-        saveState();
-      }
-      
       const storedCollapsed = localStorage.getItem('budget_tracker_sidebar_collapsed');
       state.sidebarCollapsed = storedCollapsed === 'true';
 
-      const storedWeekStart = localStorage.getItem('budget_tracker_week_start');
-      if (storedWeekStart !== null) {
-        state.weekStart = parseInt(storedWeekStart, 10);
-      } else {
-        state.weekStart = 0;
-      }
-      
-      const storedHideCompleted = localStorage.getItem('budget_tracker_hide_completed');
-      if (storedHideCompleted !== null) {
-        state.hideCompleted = storedHideCompleted === 'true';
-      } else {
-        state.hideCompleted = false;
-      }
+      // Ensure config_basic defaults are evaluated and stored without trigger double render
+      updateDataState(databaseArray, true, false);
 
       // Restore active tab and active budget period ID from sessionStorage to support page refresh
       const sessionTab = sessionStorage.getItem('budget_tracker_active_tab');
@@ -5936,10 +5852,10 @@
             <tr class="group hover:bg-slate-50 transition-colors">
               <td style="text-align: center; overflow: visible;">
                 <div style="display: inline-flex; gap: 0.25rem; align-items: center; justify-content: center;">
-                  <button class="tx-action-btn edit" title="Edit" onclick="openEditTransaction(${t.index_})">
+                  <button class="tx-action-btn edit" title="Edit" onclick="openEditTransaction('${t.id}')">
                     ${getIconSVG('Edit3', 16, 2)}
                   </button>
-                  <button class="tx-action-btn delete" title="Delete" onclick="deleteTransactionDirect(${t.index_})">
+                  <button class="tx-action-btn delete" title="Delete" onclick="deleteTransactionDirect('${t.id}')">
                     ${getIconSVG('Trash2', 16, 2)}
                   </button>
                 </div>
@@ -6042,7 +5958,7 @@
           name: s.name,
           goal: goalObj?.goal || 0,
           saved: goalObj?.saved || 0,
-          index_: goalObj?.index_
+          id: goalObj?.id
         };
       });
       
@@ -6052,7 +5968,7 @@
           name: d.name,
           goal: goalObj?.goal || 0,
           saved: goalObj?.saved || 0,
-          index_: goalObj?.index_
+          id: goalObj?.id
         };
       });
       
@@ -6110,7 +6026,7 @@
       const ringColor = category === 'Savings' ? '#3b82f6' : '#f59e0b';
       
       return `
-        <div class="goal-card" onclick="openEditGoalModal('${category}', '${item.name}', ${item.goal}, ${item.index_})">
+        <div class="goal-card" onclick="openEditGoalModal('${category}', '${item.name}', ${item.goal}, ${item.id ? `'${item.id}'` : 'null'})">
           <div style="position: absolute; top: 0; right: 0; width: 6rem; height: 6rem; background: ${category === 'Savings' ? 'linear-gradient(135deg, #60a5fa, #3b82f6)' : 'linear-gradient(135deg, #fbbf24, #f59e0b)'}; opacity: 0.03; margin-right: -3rem; margin-top: -3rem; border-radius: 9999px; pointer-events: none;"></div>
           
           <button class="goal-card-edit-btn">${getIconSVG('Edit3', 16, 2.5)}</button>
@@ -6150,7 +6066,7 @@
     function renderCalendarView(container, config) {
       const year = state.calDate.getFullYear();
       const month = state.calDate.getMonth();
-      const weekStartVal = state.weekStart || 0;
+      const weekStartVal = getConfig().startDayOfWeek;
       
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
@@ -6197,7 +6113,7 @@
         const scheduleRange = billData?.start ? (billData.end ? `${formatDate(billData.start)} to ${formatDate(billData.end)}` : formatDate(billData.start)) : 'No start date';
         
         schedulesHtml += `
-          <div class="schedule-item-card" onclick="openEditScheduleModal('${sub.name}', '${billData?.frequency || 'Monthly'}', '${billData?.start ? formatISODate(billData.start) : formatISODate(new Date())}', '${billData?.end ? formatISODate(billData.end) : ''}', ${billData?.index_ !== undefined ? billData.index_ : -1})">
+          <div class="schedule-item-card" onclick="openEditScheduleModal('${sub.name}', '${billData?.frequency || 'Monthly'}', '${billData?.start ? formatISODate(billData.start) : formatISODate(new Date())}', '${billData?.end ? formatISODate(billData.end) : ''}', ${billData?.id ? `'${billData.id}'` : 'null'})">
             <div class="schedule-item-header">
               <span class="schedule-item-title truncate">${sub.name}</span>
               <div class="schedule-item-edit-btn">
@@ -6240,9 +6156,9 @@
                 <span class="calendar-nav-title">${monthName}</span>
                 <button onclick="adjustCalendarMonth(1)" class="calendar-nav-btn-arrows">${getIconSVG('ChevronRight', 18, 2.5)}</button>
               </div>
-              <button onclick="toggleHideCompletedBills()" class="calendar-control-btn ${state.hideCompleted ? 'active' : 'inactive'}">
-                ${state.hideCompleted ? getIconSVG('EyeOff', 14, 2.5) : getIconSVG('Eye', 14, 2.5)}
-                <span>${state.hideCompleted ? 'Hidden Completed' : 'Showing All'}</span>
+              <button onclick="toggleHideCompletedBills()" class="calendar-control-btn ${getConfig().hideCompleted ? 'active' : 'inactive'}">
+                ${getConfig().hideCompleted ? getIconSVG('EyeOff', 14, 2.5) : getIconSVG('Eye', 14, 2.5)}
+                <span>${getConfig().hideCompleted ? 'Hidden Completed' : 'Showing All'}</span>
               </button>
               <button onclick="toggleWeekStart()" class="calendar-control-btn inactive">
                 ${getIconSVG('Calendar', 14, 2.5)}
@@ -6287,7 +6203,7 @@
       
       // Filter ticks if toggle activated
       let displayedOccs = occurrences;
-      if (state.hideCompleted) {
+      if (getConfig().hideCompleted) {
         displayedOccs = occurrences.filter(occ => !occ.ticked.includes(isoStr));
       }
       
@@ -6299,7 +6215,7 @@
       shownOccs.forEach(occ => {
         const isTicked = occ.ticked.includes(isoStr);
         eventsHtml += `
-          <button class="calendar-bill-badge ${isTicked ? 'ticked' : ''}" onclick="event.stopPropagation(); handleToggleBill(${occ.index_}, '${isoStr}')">
+          <button class="calendar-bill-badge ${isTicked ? 'ticked' : ''}" onclick="event.stopPropagation(); handleToggleBill('${occ.id}', '${isoStr}')">
             <span class="truncate ${isTicked ? 'line-through opacity-60' : ''}">${occ.subcategory}</span>
             ${isTicked ? getIconSVG('CheckCircle2', 10, 3) : ''}
           </button>
@@ -6349,7 +6265,7 @@
             <div class="setup-item">
               <span class="val">${sub.name}</span>
               <div class="actions">
-                <button class="icon-action danger" onclick="deleteCategoryOption('${sub.index_}', '${sub.name}')" title="Delete">
+                <button class="icon-action danger" onclick="deleteCategoryOption('${sub.id}', '${sub.name}')" title="Delete">
                   ${getIconSVG('Trash2', 14, 2.5)}
                 </button>
               </div>
@@ -6586,8 +6502,6 @@
       `;
     }
 
-    // Note: renderModifyBudgetPeriodView has been replaced by the premium openModifyBudgetModal dialog to match GoogleSheet.txt layout and styling.
-
     // --- Action Triggers & Navigation Hub ---
     function selectTab(tabName) {
       state.activeTab = tabName;
@@ -6701,7 +6615,7 @@
             category: cat, 
             subcategory: sub.name, 
             amount: existing ? existing.amount : 0, 
-            index_: existing ? existing.index_ : undefined 
+            id: existing ? existing.id : undefined 
           });
         });
       });
@@ -6769,33 +6683,27 @@
       const endStr = formatISODate(state.editingBudget.end);
       const periodId = state.editingBudget.id;
       
-      const availableIndices = state.data
-        .filter(d => d.index_ > 0 && (!d.row[bdIdx.start] || d.row[bdIdx.start] === ""))
-        .map(d => d.index_);
-      
-      let usedGapIdx = 0;
       state.editingBudget.settings.forEach(s => {
-        const patch = Array(35).fill(undefined);
-        patch[bdIdx.budget] = s.amount;
-        
-        if (s.index_ !== undefined && s.index_ !== -1) {
-          updateItem(s.index_, patch);
+        if (s.id) {
+          databaseArray = databaseArray.map(record =>
+            record.id === s.id
+              ? { ...record, updatedAt: Date.now(), data: { ...record.data, amount: s.amount } }
+              : record
+          );
         } else {
-          const newRow = Array(35).fill(undefined);
-          newRow[bdIdx.start] = startStr;
-          newRow[bdIdx.end] = endStr;
-          newRow[bdIdx.cat] = s.category;
-          newRow[bdIdx.sub] = s.subcategory;
-          newRow[bdIdx.budget] = s.amount;
-          
-          if (usedGapIdx < availableIndices.length) {
-            updateItem(availableIndices[usedGapIdx], newRow);
-            usedGapIdx++;
-          } else {
-            insertItem(undefined, newRow);
-          }
+          const newRecord = {
+            id: "budget_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 5),
+            table: "budgets",
+            updatedAt: Date.now(),
+            deleted: false,
+            data: { periodStart: startStr, periodEnd: endStr, category: s.category, subcategory: s.subcategory, amount: s.amount }
+          };
+          databaseArray.push(newRecord);
         }
       });
+      
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
       
       state.editingBudget = null;
       closeModal();
@@ -6816,26 +6724,19 @@
         return;
       }
       
-      const availableIndices = state.data
-        .filter(d => d.index_ > 0 && (!d.row[bdIdx.start] || d.row[bdIdx.start] === ""))
-        .map(d => d.index_);
-      
-      let usedGapIdx = 0;
       state.tempBudget.items.forEach(item => {
-        const patch = Array(35).fill(undefined);
-        patch[bdIdx.start] = sVal;
-        patch[bdIdx.end] = eVal;
-        patch[bdIdx.cat] = item.cat;
-        patch[bdIdx.sub] = item.sub;
-        patch[bdIdx.budget] = item.budget || 0;
-        
-        if (usedGapIdx < availableIndices.length) {
-          updateItem(availableIndices[usedGapIdx], patch);
-          usedGapIdx++;
-        } else {
-          insertItem(undefined, patch);
-        }
+        const newRecord = {
+          id: "budget_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 5),
+          table: "budgets",
+          updatedAt: Date.now(),
+          deleted: false,
+          data: { periodStart: sVal, periodEnd: eVal, category: item.cat, subcategory: item.sub, amount: item.budget || 0 }
+        };
+        databaseArray.push(newRecord);
       });
+      
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
       
       state.activeTab = 'budgets';
       state.activeBudgetPeriodId = `${sVal}_${eVal}`;
@@ -6851,15 +6752,13 @@
         const periods = getBudgetPeriods(txs);
         const period = periods.find(p => p.id === periodId);
         if (period) {
-          period.settings.forEach(s => {
-            const clearPatch = Array(35).fill(undefined);
-            clearPatch[bdIdx.start] = null;
-            clearPatch[bdIdx.end] = null;
-            clearPatch[bdIdx.cat] = null;
-            clearPatch[bdIdx.sub] = null;
-            clearPatch[bdIdx.budget] = null;
-            updateItem(s.index_, clearPatch);
-          });
+          const idsToDelete = period.settings.map(s => s.id);
+          databaseArray = databaseArray.map(record =>
+            idsToDelete.includes(record.id) ? { ...record, deleted: true, updatedAt: Date.now() } : record
+          );
+          updateDataState(databaseArray, true);
+          scheduleCloudSync();
+          
           state.activeBudgetPeriodId = null;
           render();
         }
@@ -6911,10 +6810,10 @@
             <tr class="group hover:bg-slate-50 transition-colors">
               <td style="text-align: center; overflow: visible;">
                 <div style="display: inline-flex; gap: 0.25rem; align-items: center; justify-content: center;">
-                  <button class="tx-action-btn edit" title="Edit" onclick="openEditTransaction(${t.index_})">
+                  <button class="tx-action-btn edit" title="Edit" onclick="openEditTransaction('${t.id}')">
                     ${getIconSVG('Edit3', 16, 2)}
                   </button>
-                  <button class="tx-action-btn delete" title="Delete" onclick="deleteTransactionDirect(${t.index_})">
+                  <button class="tx-action-btn delete" title="Delete" onclick="deleteTransactionDirect('${t.id}')">
                     ${getIconSVG('Trash2', 16, 2)}
                   </button>
                 </div>
@@ -7031,16 +6930,13 @@
       updateTxTableFiltered();
     }
 
-    function deleteTransactionDirect(index_) {
+    function deleteTransactionDirect(id) {
       if (confirm('Are you sure you want to delete this ledger transaction record?')) {
-        const patch = Array(35).fill(undefined);
-        patch[tIdx.date] = null;
-        patch[tIdx.cat] = null;
-        patch[tIdx.sub] = null;
-        patch[tIdx.amt] = null;
-        patch[tIdx.notes] = null;
-        
-        updateItem(index_, patch);
+        databaseArray = databaseArray.map(record =>
+          record.id === id ? { ...record, deleted: true, updatedAt: Date.now() } : record
+        );
+        updateDataState(databaseArray, true);
+        scheduleCloudSync();
       }
     }
 
@@ -7142,28 +7038,31 @@
         return;
       }
       
-      const patch = Array(35).fill(undefined);
-      patch[tIdx.date] = dateVal;
-      patch[tIdx.cat] = catVal;
-      patch[tIdx.sub] = subVal;
-      patch[tIdx.amt] = amtVal;
-      patch[tIdx.notes] = notesVal;
+      const newRecord = {
+        id: "tx_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 5),
+        table: "transactions",
+        updatedAt: Date.now(),
+        deleted: false,
+        data: {
+          date: dateVal,
+          category: catVal,
+          subcategory: subVal,
+          amount: amtVal,
+          notes: notesVal
+        }
+      };
       
-      const targetIdx = findAvailableRowInTable(tIdx.date);
-      if (targetIdx !== -1) {
-        updateItem(targetIdx, patch);
-      } else {
-        insertItem(undefined, patch);
-      }
+      databaseArray.push(newRecord);
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
       
       closeModal();
     }
 
     // B. Edit Transaction Modal
-    function openEditTransaction(index_) {
-      const rowObj = state.data.find(d => d.index_ === index_);
-      if (!rowObj) return;
-      const row = rowObj.row;
+    function openEditTransaction(id) {
+      const record = databaseArray.find(r => r.id === id);
+      if (!record) return;
       
       const subs = getSubcategories();
       
@@ -7178,8 +7077,8 @@
         subSelect.innerHTML = options;
       };
       
-      const currentCat = row[tIdx.cat];
-      const currentSub = row[tIdx.sub];
+      const currentCat = record.data.category;
+      const currentSub = record.data.subcategory;
       
       let subOptions = '';
       if (subs[currentCat]) {
@@ -7196,7 +7095,7 @@
         <div class="modal-body">
           <div class="form-group">
             <span class="form-label">Transaction Date</span>
-            <input type="date" class="form-input" id="modal-tx-date" value="${formatISODate(parseCellDate(row[tIdx.date]))}">
+            <input type="date" class="form-input" id="modal-tx-date" value="${formatISODate(parseCellDate(record.data.date))}">
           </div>
           
           <div class="form-group">
@@ -7215,19 +7114,19 @@
           
           <div class="form-group">
             <span class="form-label">Amount (${getConfig().currency})</span>
-            <input type="number" step="0.01" class="form-input hide-spin-buttons" id="modal-tx-amt" value="${row[tIdx.amt]}">
+            <input type="number" step="0.01" class="form-input hide-spin-buttons" id="modal-tx-amt" value="${record.data.amount}">
           </div>
           
           <div class="form-group">
             <span class="form-label">Notes / Description</span>
-            <textarea class="form-textarea" id="modal-tx-notes" placeholder="Any details...">${row[tIdx.notes] || ''}</textarea>
+            <textarea class="form-textarea" id="modal-tx-notes" placeholder="Any details...">${record.data.notes || ''}</textarea>
           </div>
           
           <div class="form-actions">
-            <button class="btn btn-danger" onclick="submitDeleteTransaction(${index_})">
+            <button class="btn btn-danger" onclick="submitDeleteTransaction('${id}')">
               ${getIconSVG('Trash2', 14, 2.5)} Delete
             </button>
-            <button class="btn btn-primary" onclick="submitEditTransaction(${index_})">
+            <button class="btn btn-primary" onclick="submitEditTransaction('${id}')">
               Save Changes
             </button>
           </div>
@@ -7236,7 +7135,7 @@
       openModal(markup);
     }
 
-    function submitEditTransaction(index_) {
+    function submitEditTransaction(id) {
       const dateVal = document.getElementById('modal-tx-date').value;
       const catVal = document.getElementById('modal-tx-cat').value;
       const subVal = document.getElementById('modal-tx-sub').value;
@@ -7248,27 +7147,35 @@
         return;
       }
       
-      const patch = Array(35).fill(undefined);
-      patch[tIdx.date] = dateVal;
-      patch[tIdx.cat] = catVal;
-      patch[tIdx.sub] = subVal;
-      patch[tIdx.amt] = amtVal;
-      patch[tIdx.notes] = notesVal;
+      databaseArray = databaseArray.map(record =>
+        record.id === id
+          ? {
+              ...record,
+              updatedAt: Date.now(),
+              data: {
+                ...record.data,
+                date: dateVal,
+                category: catVal,
+                subcategory: subVal,
+                amount: amtVal,
+                notes: notesVal
+              }
+            }
+          : record
+      );
       
-      updateItem(index_, patch);
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
       closeModal();
     }
 
-    function submitDeleteTransaction(index_) {
+    function submitDeleteTransaction(id) {
       if (confirm('Delete this ledger transaction record?')) {
-        const patch = Array(35).fill(undefined);
-        patch[tIdx.date] = null;
-        patch[tIdx.cat] = null;
-        patch[tIdx.sub] = null;
-        patch[tIdx.amt] = null;
-        patch[tIdx.notes] = null;
-        
-        updateItem(index_, patch);
+        databaseArray = databaseArray.map(record =>
+          record.id === id ? { ...record, deleted: true, updatedAt: Date.now() } : record
+        );
+        updateDataState(databaseArray, true);
+        scheduleCloudSync();
         closeModal();
       }
     }
@@ -7293,31 +7200,35 @@
           
           <div class="form-actions">
             <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="submitEditGoal('${category}', '${subName}', ${index_})">Save Goal</button>
+            <button class="btn btn-primary" onclick="submitEditGoal('${category}', '${subName}', ${index_ ? `'${index_}'` : 'null'})">Save Goal</button>
           </div>
         </div>
       `;
       openModal(markup);
     }
 
-    function submitEditGoal(category, subName, index_) {
+    function submitEditGoal(category, subName, id) {
       const goalVal = parseFloat(document.getElementById('modal-goal-val').value) || 0;
       
-      const patch = Array(35).fill(undefined);
-      patch[gIdx.cat] = category;
-      patch[gIdx.sub] = subName;
-      patch[gIdx.goal] = goalVal;
-      
-      if (index_ !== undefined && index_ !== null && index_ >= 0) {
-        updateItem(index_, patch);
+      if (id) {
+        databaseArray = databaseArray.map(record =>
+          record.id === id
+            ? { ...record, updatedAt: Date.now(), data: { ...record.data, goal: goalVal } }
+            : record
+        );
       } else {
-        const targetIdx = findAvailableRowInTable(gIdx.cat);
-        if (targetIdx !== -1) {
-          updateItem(targetIdx, patch);
-        } else {
-          insertItem(undefined, patch);
-        }
+        const newRecord = {
+          id: "goal_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 5),
+          table: "goals",
+          updatedAt: Date.now(),
+          deleted: false,
+          data: { category: category, subcategory: subName, goal: goalVal }
+        };
+        databaseArray.push(newRecord);
       }
+      
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
       closeModal();
     }
 
@@ -7331,7 +7242,7 @@
       occurrences.forEach(occ => {
         const isTicked = occ.ticked.includes(isoStr);
         eventsHtml += `
-          <button onclick="handleToggleBill(${occ.index_}, '${isoStr}'); openMoreBillsModal('${isoStr}');" class="w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between group ${isTicked ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200'}" style="cursor: pointer; display: flex; align-items: center; border: 1px solid ${isTicked ? 'var(--emerald-100)' : 'var(--slate-200)'}; gap: 1rem;">
+          <button onclick="handleToggleBill('${occ.id}', '${isoStr}'); openMoreBillsModal('${isoStr}');" class="w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between group ${isTicked ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200'}" style="cursor: pointer; display: flex; align-items: center; border: 1px solid ${isTicked ? 'var(--emerald-100)' : 'var(--slate-200)'}; gap: 1rem;">
             <div class="flex items-center gap-3" style="display: flex; align-items: center; gap: 0.75rem;">
               <div class="p-2 rounded-xl transition-colors ${isTicked ? 'bg-emerald-500 text-white' : 'bg-slate-50 text-slate-400'}" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: var(--radius-xl);">
                 ${isTicked ? getIconSVG('CheckSquare', 20, 2.5) : getIconSVG('Square', 20, 2.5)}
@@ -7358,8 +7269,8 @@
       openModal(markup);
     }
 
-    function handleToggleBill(billIndex, dateIsoStr) {
-      toggleBillStatus(billIndex, parseISODateString(dateIsoStr));
+    function handleToggleBill(billId, dateIsoStr) {
+      toggleBillStatus(billId, parseISODateString(dateIsoStr));
       render();
     }
 
@@ -7391,14 +7302,14 @@
           
           <div class="form-actions" style="display: flex; gap: 1rem; margin-top: 1.5rem;">
             <button class="btn btn-secondary" style="flex: 1; padding: 1rem; border-radius: var(--radius-xl); border: 1px solid var(--slate-200); font-weight: 700; cursor: pointer;" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-primary" style="flex: 1; padding: 1rem; border-radius: var(--radius-xl); background: var(--primary); color: white; border: none; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-md);" onclick="submitEditSchedule('${subName}', ${index_})">Save Schedule</button>
+            <button class="btn btn-primary" style="flex: 1; padding: 1rem; border-radius: var(--radius-xl); background: var(--primary); color: white; border: none; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-md);" onclick="submitEditSchedule('${subName}', ${index_ ? `'${index_}'` : 'null'})">Save Schedule</button>
           </div>
         </div>
       `;
       openModal(markup);
     }
 
-    function submitEditSchedule(subName, index_) {
+    function submitEditSchedule(subName, id) {
       const freq = document.getElementById('modal-sched-freq').value;
       const start = document.getElementById('modal-sched-start').value;
       const end = document.getElementById('modal-sched-end').value || null;
@@ -7408,26 +7319,29 @@
         return;
       }
       
-      const patch = Array(35).fill(undefined);
       const subs = getSubcategories();
       const isBill = subs.Bills.find(s => s.name === subName) !== undefined;
+      const category = isBill ? 'Bills' : 'Debt';
       
-      patch[cIdx.cat] = isBill ? 'Bills' : 'Debt';
-      patch[cIdx.sub] = subName;
-      patch[cIdx.freq] = freq;
-      patch[cIdx.start] = start;
-      patch[cIdx.end] = end;
-      
-      if (index_ !== undefined && index_ !== null && index_ >= 0) {
-        updateItem(index_, patch);
+      if (id) {
+        databaseArray = databaseArray.map(record =>
+          record.id === id
+            ? { ...record, updatedAt: Date.now(), data: { ...record.data, frequency: freq, start: start, end: end } }
+            : record
+        );
       } else {
-        const targetIdx = findAvailableRowInTable(cIdx.cat);
-        if (targetIdx !== -1) {
-          updateItem(targetIdx, patch);
-        } else {
-          insertItem(undefined, patch);
-        }
+        const newRecord = {
+          id: "bill_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 5),
+          table: "bills",
+          updatedAt: Date.now(),
+          deleted: false,
+          data: { category: category, subcategory: subName, frequency: freq, start: start, end: end, ticked: '' }
+        };
+        databaseArray.push(newRecord);
       }
+      
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
       closeModal();
       render();
     }
@@ -7439,14 +7353,26 @@
     }
 
     function toggleHideCompletedBills() {
-      state.hideCompleted = !state.hideCompleted;
-      saveState();
+      const current = getConfig().hideCompleted;
+      databaseArray = databaseArray.map(record =>
+        record.id === "config_basic"
+          ? { ...record, updatedAt: Date.now(), data: { ...record.data, hideCompleted: !current } }
+          : record
+      );
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
       render();
     }
 
     function toggleWeekStart() {
-      state.weekStart = state.weekStart === 0 ? 1 : 0;
-      saveState();
+      const current = getConfig().startDayOfWeek;
+      databaseArray = databaseArray.map(record =>
+        record.id === "config_basic"
+          ? { ...record, updatedAt: Date.now(), data: { ...record.data, startDayOfWeek: current === 0 ? 1 : 0 } }
+          : record
+      );
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
       render();
     }
 
@@ -7499,37 +7425,30 @@
     function clearAllData() {
       if (confirm('Are you sure you want to delete all local and cloud data? This cannot be undone.')) {
         const now = Date.now();
-        // 1. Reset databaseArray basic config and soft-delete categories
+        
+        // 1. Reset databaseArray basic config and soft-delete everything else
         databaseArray = databaseArray.map(record => {
           if (record.id === "config_basic") {
             return {
               ...record,
               deleted: false,
               updatedAt: now,
-              data: { userName: "", currency: "$", startBalance: 0 }
+              data: { userName: "", currency: "$", startBalance: 0, startDayOfWeek: 1, hideCompleted: false }
             };
           } else {
             return { ...record, deleted: true, updatedAt: now };
           }
         });
-        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
-
-        // 2. Reset other tabs' local state
-        state.data = initializeDefaultData();
-        state.weekStart = 1; // Monday start
-        state.hideCompleted = false;
-        state.activeBudgetPeriodId = null;
-        state.activeTab = 'budgets';
-        localStorage.removeItem('budget_tracker_sheet_data');
-        localStorage.removeItem('budget_tracker_week_start');
-        localStorage.removeItem('budget_tracker_hide_completed');
-        localStorage.removeItem('budget_tracker_sidebar_collapsed');
         
-        saveState();
-        render();
+        updateDataState(databaseArray, true);
+        scheduleCloudSync();
 
-        // 3. Sync immediately to cloud to clear backups
-        scheduleCloudSync(true);
+        // 2. Reset UI state
+        state.activeBudgetPeriodId = null;
+        state.activeTab = 'setup';
+        
+        saveUIState();
+        render();
         alert("All data cleared successfully.");
       }
     }
@@ -7647,27 +7566,9 @@
     }
 
     // --- JSON Database Import & Export Engines ---
-    // Exports full databaseArray envelopes PLUS state.data rows wrapped as 'sheet_rows' envelopes.
-    // This satisfies the Data Envelope Protocol (Rule 1) while preserving all tab data.
     function exportData() {
-      if (!databaseArray.length && !state.data.length) return alert("No data to export.");
-      const now = Date.now();
-
-      // 1. Start with all existing databaseArray envelopes (config_basic, categories, etc.)
-      const envelopes = databaseArray.map(r => ({ ...r }));
-
-      // 2. Wrap every state.data row as a 'sheet_rows' envelope so other-tab data is preserved
-      state.data.forEach(d => {
-        envelopes.push({
-          id: "row_" + d.index_,
-          table: "sheet_rows",
-          updatedAt: now,
-          deleted: false,
-          data: { index_: d.index_, row: d.row }
-        });
-      });
-
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(envelopes, null, 2));
+      if (!databaseArray.length) return alert("No data to export.");
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(databaseArray, null, 2));
       const a = document.createElement('a');
       a.setAttribute("href", dataStr);
       a.setAttribute("download", EXPORT_FILE_NAME);
@@ -7682,7 +7583,6 @@
     }
 
     // Import Timestamp Update Protocol (Rule 5): set updatedAt = Date.now() on all records.
-    // Supports both new envelope format and legacy state.data format for backwards compatibility.
     function importData(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -7694,63 +7594,15 @@
           const parsed = JSON.parse(e.target.result);
           const now = Date.now();
 
-          // --- New envelope format ---
           if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].hasOwnProperty('id') && parsed[0].hasOwnProperty('table')) {
             // Rule 5: stamp all records with current time so they win conflict resolution
-            const stamped = parsed.map(item => ({ ...item, updatedAt: now }));
-
-            // Separate envelope types
-            const settingsEnvelopes = stamped.filter(r => r.table === 'config_basic' || r.table === 'categories');
-            const sheetRowEnvelopes = stamped.filter(r => r.table === 'sheet_rows');
-            const otherEnvelopes = stamped.filter(r => r.table !== 'config_basic' && r.table !== 'categories' && r.table !== 'sheet_rows');
-
-            // Restore databaseArray: keep existing records not covered by import, overlay imported ones
-            const importedIds = new Set(settingsEnvelopes.map(r => r.id));
-            const keptExisting = databaseArray.filter(r => !importedIds.has(r.id));
-            databaseArray = [...keptExisting, ...settingsEnvelopes, ...otherEnvelopes];
-            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
-
-            // Restore state.data from sheet_rows envelopes
-            if (sheetRowEnvelopes.length > 0) {
-              state.data = sheetRowEnvelopes.map(env => ({ index_: env.data.index_, row: env.data.row }));
-              saveState();
-            }
-
+            databaseArray = parsed.map(item => ({ ...item, updatedAt: now }));
+            updateDataState(databaseArray, true);
             scheduleCloudSync();
             render();
             alert('Database restored successfully! ✅');
-
-          // --- Legacy format (index_/row array) — backwards compatibility ---
-          } else if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].hasOwnProperty('index_') && parsed[0].hasOwnProperty('row')) {
-            state.data = parsed;
-            saveState();
-
-            // Extract config from legacy row 1
-            const configRow = parsed.find(d => d.index_ === 1)?.row || [];
-            databaseArray = databaseArray.map(r => {
-              if (r.id === 'config_basic') {
-                return { ...r, updatedAt: now, deleted: false, data: { userName: configRow[bIdx.name] || '', currency: configRow[bIdx.cur] || '$', startBalance: parseFloat(configRow[bIdx.bal]) || 0 } };
-              }
-              if (r.table === 'categories') return { ...r, deleted: true, updatedAt: now };
-              return r;
-            });
-
-            // Extract legacy categories
-            parsed.slice(1).forEach(d => {
-              const cat = d.row[sIdx.cat];
-              const sub = d.row[sIdx.sub];
-              if (cat && sub) {
-                databaseArray.push({ id: "category_" + d.index_ + "_" + now.toString(36), table: "categories", updatedAt: now, deleted: false, data: { category: cat, subcategory: sub } });
-              }
-            });
-
-            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
-            scheduleCloudSync();
-            render();
-            alert('Database restored successfully! ✅');
-
           } else {
-            alert('Import failed: JSON structure is incorrect.');
+            alert('Import failed: JSON structure is incorrect or uses the old unsupported legacy format.');
           }
         } catch (err) {
           alert('Invalid JSON file. Please make sure the file is not corrupted.');
@@ -7762,7 +7614,7 @@
     // --- Side navigation sidebar control toggles ---
     document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
       state.sidebarCollapsed = !state.sidebarCollapsed;
-      saveState();
+      saveUIState();
       updateSidebarCollapseState();
       render();
     });
@@ -7829,7 +7681,9 @@
             data: {
               userName: "",
               currency: "$",
-              startBalance: 0
+              startBalance: 0,
+              startDayOfWeek: 1, // Default Monday start
+              hideCompleted: false
             }
           }
         ];
@@ -7934,4 +7788,3 @@
   </script>
 </body>
 </html>
-  
