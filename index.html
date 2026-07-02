@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta name="theme-color" content="#4f46e5">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Simple Budget</title>
+  
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js" async defer></script>
 
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Antigravity Budget Tracker</title>
-  
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   
   <style>
     /* --- CSS Variables & Design Tokens --- */
@@ -90,10 +89,13 @@
       background-color: var(--slate-50);
       color: var(--slate-700);
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      /* --safe-bottom is set dynamically by JS below for Android nav bars */
+      padding-bottom: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
     }
     
     input, select, textarea, button {
@@ -117,11 +119,32 @@
       background: var(--slate-400);
     }
     
+    /* --- Sidebar Overlay for Mobile/Tablet --- */
+    .sidebar-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.3);
+      backdrop-filter: blur(4px);
+      z-index: 30; /* Below sidebar (40) but above content */
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
     /* --- Layout Structure --- */
     #app-container {
       display: flex;
       width: 100vw;
       height: 100vh;
+      height: 100dvh; /* tracks dynamic viewport — updates when Android nav bar appears */
       position: relative;
     }
     
@@ -456,6 +479,7 @@
     main {
       flex: 1;
       height: 100vh;
+      height: 100dvh; /* dynamic — recalculates when Android nav bar appears/disappears */
       display: flex;
       flex-direction: column;
       min-width: 0;
@@ -470,6 +494,9 @@
       align-items: center;
       justify-content: space-between;
       padding: 0 2rem;
+      /* Respect side notch/safe area on mobile */
+      padding-left: max(2rem, env(safe-area-inset-left, 0px));
+      padding-right: max(2rem, env(safe-area-inset-right, 0px));
       flex-shrink: 0;
       z-index: 10;
     }
@@ -530,11 +557,15 @@
       background: var(--slate-50);
       position: relative;
       min-height: 0;
+      /* Bottom padding clears OS nav bar on both iOS and Android */
+      padding-bottom: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
+      scroll-padding-bottom: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
     }
     
     /* --- Cards & Grid Layouts --- */
     .page-container {
       padding: 2rem;
+      padding-bottom: calc(2rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
       max-width: 1400px;
       margin: 0 auto;
       width: 100%;
@@ -546,10 +577,10 @@
     
     .page-title {
       font-family: var(--font-display);
-      font-weight: 900;
-      font-size: 2.25rem;
+      font-weight: 400;
+      font-size: 2rem;
       color: var(--slate-800);
-      letter-spacing: -0.03em;
+      letter-spacing: -0.01em;
       margin-bottom: 0.25rem;
     }
     
@@ -709,10 +740,10 @@
     
     .card-title {
       font-family: var(--font-display);
-      font-weight: 800;
+      font-weight: 400;
       font-size: 1.15rem;
       color: var(--slate-800);
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
     }
     
     .card-body {
@@ -859,10 +890,10 @@
     
     .budget-card-title {
       font-family: var(--font-display);
-      font-weight: 900;
+      font-weight: 700;
       font-size: 1.15rem;
       color: var(--slate-800);
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
       padding-right: 4.5rem;
     }
     
@@ -1281,11 +1312,11 @@
     
     .goal-card-title {
       font-family: var(--font-display);
-      font-weight: 900;
+      font-weight: 400;
       font-size: 1.1rem;
       color: var(--slate-800);
       text-align: center;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
       margin-bottom: 1.5rem;
       max-width: 100%;
       white-space: nowrap;
@@ -1822,6 +1853,25 @@
       flex: 1;
       min-height: 0;
     }
+
+    @media (max-width: 1200px) {
+      .calendar-layout-grid {
+        grid-template-columns: 1fr;
+        flex: unset;
+        min-height: unset;
+        align-items: start;
+      }
+      /* page-container for calendar must be auto-height on mobile so items stack */
+      .calendar-page-container {
+        height: auto !important;
+        min-height: unset !important;
+      }
+      .schedules-sidebar {
+        max-height: none !important;
+        overflow: visible !important;
+        overflow-y: visible !important;
+      }
+    }
     
     .schedules-sidebar {
       background: white;
@@ -1832,14 +1882,28 @@
       display: flex;
       flex-direction: column;
       gap: 1.25rem;
+      /* Completely hide any scrollbar so Android never draws a line */
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
+    .schedules-sidebar::-webkit-scrollbar { display: none; }
     
     .schedules-list {
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
-      max-height: 580px;
-      overflow-y: auto;
+      /* Completely hide any scrollbar so Android never draws a line */
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      overflow-y: visible;
+    }
+    .schedules-list::-webkit-scrollbar { display: none; }
+    /* Restore scrollable sidebar only when shown beside the calendar */
+    @media (min-width: 1201px) {
+      .schedules-list {
+        max-height: 580px;
+        overflow-y: auto;
+      }
     }
     
     .schedule-item-card {
@@ -1923,6 +1987,13 @@
     @media (max-width: 1200px) {
       .calendar-layout-grid {
         grid-template-columns: 1fr;
+        align-items: start;
+      }
+      .schedules-sidebar {
+        /* On mobile: natural height, no overflow clipping */
+        max-height: none !important;
+        overflow: visible !important;
+        overflow-y: visible !important;
       }
     }
     
@@ -1965,11 +2036,12 @@
       border-radius: var(--radius-lg);
       padding: 0.25rem;
       box-shadow: var(--shadow-sm);
+      height: 2.375rem; /* match control button height */
     }
     .calendar-nav-btn-arrows {
       background: transparent;
       border: none;
-      padding: 0.5rem;
+      padding: 0.4rem 0.5rem;
       cursor: pointer;
       border-radius: var(--radius-xl);
       display: flex;
@@ -1983,12 +2055,12 @@
       color: var(--slate-800);
     }
     .calendar-nav-title {
-      padding: 0 1.5rem;
+      padding: 0 1rem;
       font-weight: 900;
       color: var(--slate-800);
       text-transform: uppercase;
-      letter-spacing: 0.1em;
-      font-size: 0.875rem;
+      letter-spacing: 0.08em;
+      font-size: 0.75rem; /* match control button font-size */
     }
     
     /* --- Setup Tab Styling --- */
@@ -2076,11 +2148,10 @@
     
     .categories-config-title {
       font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 1.1rem;
+      font-weight: 400;
+      font-size: 1.5rem;
       color: var(--slate-800);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: -0.01em;
     }
     
     .categories-setup-grid {
@@ -2088,6 +2159,18 @@
       grid-template-columns: repeat(5, 1fr);
       gap: 1.5rem;
       align-items: start;
+    }
+
+    /* Responsive 2-column backup options grid */
+    .backup-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    @media (max-width: 600px) {
+      .backup-columns {
+        grid-template-columns: 1fr;
+      }
     }
     
     @media (max-width: 1200px) {
@@ -2685,7 +2768,7 @@
     @media (max-width: 1024px) {
       aside {
         position: fixed;
-        left: -100%;
+        left: calc(-1 * var(--sidebar-width)); /* -280px */
         top: 0;
         bottom: 0;
         width: var(--sidebar-width) !important;
@@ -2695,8 +2778,49 @@
         left: 0;
       }
       
+      .toggle-sidebar-btn {
+        display: none !important; /* Hide desktop toggle button on mobile/tablet as hamburger-btn handles both states */
+      }
+      
       .hamburger-btn {
         display: flex;
+        position: absolute;
+        left: calc(var(--sidebar-width) + 1.5rem); /* 280px + 24px = 304px relative to sidebar left (-280px), making screen position 24px (1.5rem) */
+        top: 15px;
+        width: 40px;
+        height: 40px;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        background: white;
+        border: 1px solid var(--slate-200);
+        border-radius: var(--radius-lg);
+        color: var(--slate-600);
+        cursor: pointer;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      .hamburger-btn:hover {
+        background: var(--slate-50);
+        color: var(--primary);
+      }
+      
+      /* When the sidebar is expanded on mobile/tablet, transition the hamburger button to the top-right of the sidebar */
+      aside.mobile-open .hamburger-btn {
+        left: calc(var(--sidebar-width) - 1.5rem - 32px); /* 280px - 24px - 32px = 224px */
+        top: 2.25rem;
+        width: 32px;
+        height: 32px;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        color: var(--slate-400);
+      }
+      
+      aside.mobile-open .hamburger-btn:hover {
+        background: var(--slate-50);
+        color: var(--primary);
       }
       
       .analytics-panel {
@@ -2764,13 +2888,18 @@
         min-height: 80px;
       }
       
+      /* Badge text visible — calendar now scrolls horizontally on mobile */
       .calendar-bill-badge span {
-        display: none;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 80px;
       }
       
       .calendar-bill-badge {
-        justify-content: center;
-        padding: 0.25rem;
+        justify-content: flex-start;
+        padding: 0.25rem 0.375rem;
       }
       
       .filters-grid {
@@ -2851,7 +2980,8 @@
     .px-4 { padding-left: 1rem !important; padding-right: 1rem !important; }
     .pl-10 { padding-left: 2.5rem !important; }
     .w-48 { width: 12rem !important; }
-    .pb-20 { padding-bottom: 5rem !important; }
+    /* pb-20 with dynamic safe-bottom for Android nav bar + iOS home indicator */
+    .pb-20 { padding-bottom: calc(5rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) !important; }
     
     .text-3xl { font-size: 1.875rem !important; }
     .text-slate-800 { color: #1e293b !important; }
@@ -3226,7 +3356,7 @@
     }
 
     .cash-flow-label {
-      font-size: 11px !important;
+      font-size: 12px !important;
       font-weight: 700 !important;
       color: var(--slate-500) !important;
       overflow: hidden !important;
@@ -3242,7 +3372,7 @@
     }
 
     .cash-flow-value {
-      font-size: 11px !important;
+      font-size: 12px !important;
       font-weight: 900 !important;
       font-family: var(--font-body) !important;
       font-variant-numeric: tabular-nums !important;
@@ -3261,10 +3391,10 @@
         padding: 5px 8px !important;
       }
       .cash-flow-label {
-        font-size: 10px !important;
+        font-size: 11px !important;
       }
       .cash-flow-value {
-        font-size: 10px !important;
+        font-size: 11px !important;
       }
     }
 
@@ -3598,47 +3728,42 @@
       animation: pulse-ring 2s infinite !important;
     }
 
-    @keyframes pulse-ring {
-      0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); }
-      70% { box-shadow: 0 0 0 6px rgba(79, 70, 229, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
-    }
-
-    /* --- Google Drive Sync status badges and buttons --- */
     .sync-status {
-      font-size: 0.825rem;
-      font-weight: 500;
-      padding: 0.4rem 0.8rem;
-      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-lg);
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
-      background-color: #f1f5f9;
+      background-color: var(--slate-100);
       color: var(--slate-500);
       white-space: pre-line;
       line-height: 1.4;
       text-align: center;
       justify-content: center;
       border: 1px solid var(--slate-200);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
+
     .sync-status.active {
-      background-color: #e0f2fe;
-      color: #0369a1;
-      border-color: #bae6fd;
+      background-color: var(--primary-light);
+      color: var(--primary);
+      border-color: var(--primary-light-border);
     }
+
     .sync-status.error {
-      background-color: #fef2f2;
+      background-color: var(--rose-50);
       color: var(--rose-600);
-      border-color: #fecaca;
+      border-color: var(--rose-100);
       cursor: pointer;
     }
+
     button:disabled {
       opacity: 0.6;
       cursor: wait;
       pointer-events: none;
-    }
-    .btn-danger-text {
-      color: var(--rose-600) !important;
     }
   </style>
 </head>
@@ -3646,9 +3771,17 @@
 
   <div id="app-container">
     
+    <!-- Mobile/Tablet Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
     <!-- Sidebar Navigation -->
     <aside id="sidebar">
       <button class="toggle-sidebar-btn" id="toggle-sidebar-btn"></button>
+      
+      <!-- Mobile/Tablet Hamburger Button (Child of aside so it moves with it naturally) -->
+      <button class="hamburger-btn" id="hamburger-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
       
       <div class="sidebar-wrapper">
         <div class="sidebar-header">
@@ -3693,19 +3826,10 @@
       <!-- Top Header -->
       <header class="main-header">
         <div class="header-left">
-          <button class="hamburger-btn" id="hamburger-btn">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
+          <!-- Hamburger button moved to app-container for z-index stacking context -->
         </div>
         
         <div class="header-right">
-          ${(() => {
-            const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
-            const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
-            const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
-            const syncText = currentSyncStatusText || '';
-            return `<div id="syncStatusIndicatorMobile" class="${syncClass}" style="display:${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
-          })()}
         </div>
       </header>
       
@@ -3727,8 +3851,467 @@
 
   <!-- Vanilla Javascript App Engine -->
   <script>
-    // --- Global State Mirroring spreadsheet indexes ---
-    const tIdx = { date: 0, cat: 1, sub: 2, amt: 3, notes: 4 };
+    // =========================================================================
+    // SECTION: GOOGLE DRIVE SERVERLESS REALTIME CLOUD SYNC ENGINE
+    // =========================================================================
+    let databaseArray = []; // Serverless database array containing settings/categories
+    
+    const CLIENT_ID = '305632493984-9q07n0i677ku1btdds1scke8pam5ag3s.apps.googleusercontent.com';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+
+    let tokenClient;
+    let gapiInited = false;
+    let gisimInited = false;
+    let accessToken = null;
+    let cloudFileId = null;
+    let silentRefreshTimeout = null;
+    let isRefreshingToken = false;
+    let needsManualReconnect = false;
+
+    let syncDebounceTimeout = null;
+    let isSyncingInProgress = false;
+    let hasPendingSyncRequest = false;
+    let hasUnsavedChanges = false;
+
+    let currentSyncStatusText = "";
+    let currentSyncStatusType = "";
+    let syncTimerId = null;
+    let lastSyncTime = null;
+    
+    // Sandboxed Storage Keys & File names
+    const STORAGE_KEY_DATA = 'simplebudget_local_data';
+    const STORAGE_KEY_HAS_LINKED = 'simplebudget_has_linked_google';
+    const STORAGE_KEY_TOKEN = 'simplebudget_google_access_token';
+    const STORAGE_KEY_EXPIRY = 'simplebudget_google_token_expiry';
+    const SYNC_FILE_NAME = 'simplebudget_backup.json';
+    const EXPORT_FILE_NAME = 'simplebudget_export.json';
+
+  // =========================================================================
+  // GAPI / GIS REALTIME CLOUD SYNC ENGINE CORE FUNCTIONS
+  // =========================================================================
+  function updateRelativeSyncStatus() {
+      if (!lastSyncTime) return;
+      const el = document.getElementById('syncStatusIndicator');
+      
+      const diff = Date.now() - lastSyncTime;
+      let newText = "";
+      if (diff < 30 * 1000) {
+          newText = "✅ Synced Just Now";
+      } else if (diff < 120 * 1000) {
+          newText = "☁️ Last synced 1 min ago";
+      } else {
+          const mins = Math.floor(diff / 60000);
+          newText = `☁️ Last synced ${mins} min ago`;
+      }
+
+      if (el) {
+          const currentText = el.innerText;
+          const isShowingSyncedStatus = currentText === "✅ Synced Just Now" || currentText.startsWith("☁️ Last synced");
+          if (isShowingSyncedStatus && currentText !== newText) {
+              el.innerText = newText;
+              currentSyncStatusText = newText;
+          }
+      } else {
+          currentSyncStatusText = newText;
+      }
+  }
+
+  function setSyncStatus(text, type = '', isNewSync = false) {
+      currentSyncStatusText = text;
+      currentSyncStatusType = type;
+      const el = document.getElementById('syncStatusIndicator');
+      if (el) {
+          if (!text) {
+              el.style.display = 'none';
+          } else {
+              el.style.display = 'inline-flex';
+              el.innerText = text;
+              el.className = 'sync-status ' + type;
+
+              if (type !== 'error') {
+                  el.style.cursor = 'default';
+                  el.onclick = null;
+              } else {
+                  el.style.cursor = "pointer";
+                  el.onclick = () => {
+                      if (needsManualReconnect) {
+                          setSyncStatus("Connecting...", "active");
+                          tokenClient.requestAccessToken({ prompt: '' });
+                      } else {
+                          setSyncStatus("Syncing...", "active");
+                          pullAndMergeCloudData();
+                      }
+                  };
+              }
+          }
+      }
+
+      if (isNewSync) {
+          lastSyncTime = Date.now();
+          if (!syncTimerId) {
+              syncTimerId = setInterval(updateRelativeSyncStatus, 5000);
+          }
+      } else {
+          const isSyncedText = text === "✅ Synced Just Now" || text.startsWith("☁️ Last synced");
+          if (syncTimerId && !isSyncedText) {
+              clearInterval(syncTimerId);
+              syncTimerId = null;
+              lastSyncTime = null;
+          }
+      }
+  }
+
+  function gapiLoaded() {
+      gapi.load('client', async () => {
+          await gapi.client.init({ discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
+          gapiInited = true;
+          evaluateRoutingSession();
+      });
+  }
+
+  function gisLoaded() {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: async (resp) => {
+              isRefreshingToken = false;
+              if (silentRefreshTimeout) {
+                  clearTimeout(silentRefreshTimeout);
+                  silentRefreshTimeout = null;
+              }
+
+              if (resp.error !== undefined) {
+                  needsManualReconnect = true;
+                  triggerReconnectState();
+                  return;
+              }
+
+              needsManualReconnect = false;
+              accessToken = resp.access_token;
+              gapi.client.setToken({ access_token: accessToken });
+
+              localStorage.setItem(STORAGE_KEY_TOKEN, accessToken);
+              localStorage.setItem(STORAGE_KEY_EXPIRY, (Date.now() + (resp.expires_in * 1000)).toString());
+              localStorage.setItem(STORAGE_KEY_HAS_LINKED, 'true');
+
+              updateAuthUI(true);
+              setSyncStatus("✅ Synced Just Now", "active", true);
+
+              await pullAndMergeCloudData();
+          },
+      });
+      gisimInited = true;
+      evaluateRoutingSession();
+  }
+  window.addEventListener('load', () => { gapiLoaded(); gisLoaded(); });
+
+  function evaluateRoutingSession() {
+      if (!gapiInited || !gisimInited) return;
+
+      if (localStorage.getItem(STORAGE_KEY_HAS_LINKED) === 'true') {
+          const cachedToken = localStorage.getItem(STORAGE_KEY_TOKEN);
+          const expiry = parseInt(localStorage.getItem(STORAGE_KEY_EXPIRY) || '0');
+
+          if (cachedToken && Date.now() < expiry) {
+              accessToken = cachedToken;
+              gapi.client.setToken({ access_token: accessToken });
+              updateAuthUI(true);
+              setSyncStatus("✅ Synced Just Now", "active", true);
+              pullAndMergeCloudData();
+          } else {
+              if (isRefreshingToken) return;
+
+              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+              updateAuthUI(true);
+
+              if (isMobile) {
+                  needsManualReconnect = true;
+                  triggerReconnectState();
+              } else {
+                  isRefreshingToken = true;
+                  setSyncStatus("Reconnecting...", "active");
+
+                  silentRefreshTimeout = setTimeout(() => {
+                      console.warn("Silent refresh timed out. Forcing manual reconnect button.");
+                      isRefreshingToken = false;
+                      needsManualReconnect = true;
+                      triggerReconnectState();
+                  }, 4000);
+
+                  tokenClient.requestAccessToken({ prompt: 'none' });
+              }
+          }
+      } else {
+          updateAuthUI(false);
+      }
+  }
+
+  function triggerReconnectState() {
+      setSyncStatus("Session Expired - Tap to Reconnect 🔄", "error");
+  }
+
+  function handleAuthFailure() {
+      localStorage.removeItem(STORAGE_KEY_TOKEN);
+      updateAuthUI(false);
+  }
+
+  function updateAuthUI(isConnected) {
+      const authBtn = document.getElementById('authBtn');
+      const authBtnCard = document.getElementById('authBtnSetupCard');
+      
+      if (authBtn) {
+          authBtn.disabled = false;
+          if (isConnected) {
+              authBtn.textContent = 'Disconnect';
+              authBtn.className = 'btn-secondary btn-sm btn-danger-text';
+              authBtn.style.color = 'var(--rose-600)';
+              authBtn.style.background = 'var(--rose-50)';
+              authBtn.style.border = '1px solid var(--rose-100)';
+          } else {
+              authBtn.textContent = 'Connect Drive';
+              authBtn.className = 'btn-primary btn-sm';
+              authBtn.style.color = 'white';
+              authBtn.style.background = 'var(--primary)';
+              authBtn.style.border = 'none';
+          }
+      }
+      if (authBtnCard) {
+          authBtnCard.disabled = false;
+          if (isConnected) {
+              authBtnCard.textContent = 'Disconnect Drive';
+              authBtnCard.className = 'btn btn-secondary';
+              authBtnCard.style.color = 'var(--rose-600)';
+              authBtnCard.style.background = 'var(--rose-50)';
+              authBtnCard.style.border = '1px solid var(--rose-100)';
+          } else {
+              authBtnCard.textContent = 'Connect to Google Drive';
+              authBtnCard.className = 'btn btn-primary';
+              authBtnCard.style.color = 'white';
+              authBtnCard.style.background = 'var(--primary)';
+              authBtnCard.style.border = 'none';
+          }
+      }
+      if (!isConnected) {
+          setSyncStatus("", "");
+      }
+  }
+
+  function handleAuthClick() {
+      if (localStorage.getItem(STORAGE_KEY_HAS_LINKED) === 'true') {
+          accessToken = null;
+          isRefreshingToken = false;
+          needsManualReconnect = false;
+
+          localStorage.setItem(STORAGE_KEY_HAS_LINKED, 'false');
+          localStorage.removeItem(STORAGE_KEY_TOKEN);
+          localStorage.removeItem(STORAGE_KEY_EXPIRY);
+
+          updateAuthUI(false);
+          render();
+      } else {
+          if (!gapiInited || !gisimInited) return alert("System booting. Please retry in a moment.");
+          setSyncStatus("Connecting...", "active");
+          tokenClient.requestAccessToken({ prompt: 'select_account consent' });
+      }
+  }
+
+  async function pullAndMergeCloudData() {
+      if (!accessToken) return false;
+      try {
+          const response = await gapi.client.drive.files.list({
+              q: `name = '${SYNC_FILE_NAME}' and trashed = false`,
+              spaces: 'appDataFolder',
+              fields: 'files(id, name)'
+          });
+
+          const files = response.result.files;
+          cloudFileId = files.length > 0 ? files[0].id : null;
+
+          let success = true;
+          if (cloudFileId) {
+              const fileData = await gapi.client.drive.files.get({ fileId: cloudFileId, alt: 'media' });
+              const remotePayload = fileData.result;
+
+              if (remotePayload && remotePayload.records) {
+                  const cloudRecords = remotePayload.records;
+                  const mergedMap = new Map();
+
+                  cloudRecords.forEach(item => mergedMap.set(item.id, item));
+
+                  let localHasNewerEdits = false;
+                  databaseArray.forEach(localItem => {
+                      const cloudItem = mergedMap.get(localItem.id);
+                      if (!cloudItem || (localItem.updatedAt > (cloudItem.updatedAt || 0))) {
+                          mergedMap.set(localItem.id, localItem);
+                          localHasNewerEdits = true;
+                      }
+                  });
+
+                  const finalMergedRecords = Array.from(mergedMap.values());
+                  updateDataState(finalMergedRecords, true);
+
+                  if (localHasNewerEdits) {
+                      success = await autoUploadToCloud();
+                  }
+              }
+          } else {
+              success = await autoUploadToCloud();
+          }
+          if (success) {
+              setSyncStatus("✅ Synced Just Now", "active", true);
+              return true;
+          }
+          return false;
+      } catch (err) {
+          console.error("Sync pull execution exception:", err);
+          const msg = !navigator.onLine ? "Sync paused - Offline\nTap to reconnect" : "Sync Paused ⚠️";
+          setSyncStatus(msg, "error");
+          if (err.status === 401) {
+              localStorage.setItem(STORAGE_KEY_EXPIRY, '0');
+              evaluateRoutingSession();
+          }
+          return false;
+      }
+  }
+
+  async function autoUploadToCloud() {
+      if (localStorage.getItem(STORAGE_KEY_HAS_LINKED) !== 'true' || !accessToken) return false;
+      setSyncStatus("Saving to Cloud...", "active");
+
+      try {
+          if (!cloudFileId) {
+              const response = await gapi.client.drive.files.list({
+                  q: `name = '${SYNC_FILE_NAME}' and trashed = false`,
+                  spaces: 'appDataFolder',
+                  fields: 'files(id)'
+              });
+              if (response.result.files.length > 0) {
+                  cloudFileId = response.result.files[0].id;
+              } else {
+                  const metaResp = await gapi.client.drive.files.create({
+                      resource: { name: SYNC_FILE_NAME, parents: ['appDataFolder'] },
+                      fields: 'id'
+                  });
+                  cloudFileId = metaResp.result.id;
+              }
+          }
+
+          const payload = { records: databaseArray };
+
+          await gapi.client.request({
+              path: `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=media`,
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+          });
+
+          setSyncStatus("✅ Synced Just Now", "active", true);
+          return true;
+      } catch (err) {
+          console.error("Cloud engine commit intercept:", err);
+          const msg = !navigator.onLine ? "Sync paused - Offline\nTap to reconnect" : "Sync Paused ⚠️";
+          setSyncStatus(msg, "error");
+          if (err.status === 401) {
+              localStorage.setItem(STORAGE_KEY_EXPIRY, '0');
+              evaluateRoutingSession();
+          }
+          return false;
+      }
+  }
+
+  function scheduleCloudSync(immediate = false) {
+      if (localStorage.getItem(STORAGE_KEY_HAS_LINKED) !== 'true' || !accessToken) return;
+
+      hasUnsavedChanges = true;
+      setSyncStatus("Saving to Cloud...", "active");
+
+      if (syncDebounceTimeout) {
+          clearTimeout(syncDebounceTimeout);
+          syncDebounceTimeout = null;
+      }
+
+      if (immediate) {
+          triggerSyncNow();
+      } else {
+          syncDebounceTimeout = setTimeout(triggerSyncNow, 3000);
+      }
+  }
+
+  async function triggerSyncNow() {
+      if (syncDebounceTimeout) {
+          clearTimeout(syncDebounceTimeout);
+          syncDebounceTimeout = null;
+      }
+
+      if (isSyncingInProgress) {
+          hasPendingSyncRequest = true;
+          return;
+      }
+
+      isSyncingInProgress = true;
+      hasPendingSyncRequest = false;
+
+      try {
+          const success = await pullAndMergeCloudData();
+          if (success) {
+              hasUnsavedChanges = false;
+          }
+      } catch (err) {
+          console.error("Sync execution error during triggerSyncNow:", err);
+      } finally {
+          isSyncingInProgress = false;
+          if (hasPendingSyncRequest) {
+              triggerSyncNow();
+          }
+      }
+  }
+
+  let lastInteractionSyncTime = Date.now();
+  const SYNC_COOLDOWN_MS = 300000;
+
+  function handleMicroInteraction() {
+      if (localStorage.getItem(STORAGE_KEY_HAS_LINKED) !== 'true' || !accessToken) return;
+      if (isRefreshingToken || needsManualReconnect) return;
+
+      const expiry = parseInt(localStorage.getItem(STORAGE_KEY_EXPIRY) || '0');
+      if (Date.now() >= expiry) {
+          evaluateRoutingSession();
+          return;
+      }
+
+      const now = Date.now();
+      if (now - lastInteractionSyncTime > SYNC_COOLDOWN_MS) {
+          lastInteractionSyncTime = now;
+          if (!isSyncingInProgress && !syncDebounceTimeout) {
+              setSyncStatus("Checking...", "active");
+              triggerSyncNow();
+          }
+      }
+  }
+
+  window.addEventListener('mousemove', handleMicroInteraction);
+  window.addEventListener('keydown', handleMicroInteraction);
+  window.addEventListener('touchstart', handleMicroInteraction, { passive: true });
+  window.addEventListener('focus', handleMicroInteraction);
+
+  window.addEventListener('beforeunload', (e) => {
+      if (hasUnsavedChanges) {
+          e.preventDefault();
+          e.returnValue = 'You have unsaved changes syncing to the cloud. Are you sure you want to leave?';
+      }
+  });
+
+  function updateDataState(newData, saveLocal = true) {
+      databaseArray = newData;
+      if (saveLocal) {
+          localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
+      }
+      render();
+  }
+
+  // --- Global State Mirroring spreadsheet indexes ---
+  const tIdx = { date: 0, cat: 1, sub: 2, amt: 3, notes: 4 };
     const sIdx = { cat: 7, sub: 8 };
     const bIdx = { cur: 10, bal: 11, name: 12 };
     const gIdx = { cat: 14, sub: 15, goal: 16, saved: 17 };
@@ -3890,10 +4473,6 @@
     // --- Spreadsheets CRUD Data Engine ---
     function saveState() {
       localStorage.setItem('budget_tracker_sheet_data', JSON.stringify(state.data));
-      // Auto-upload changes to cloud if connected (Rule 3)
-      if (typeof autoUploadToCloud === 'function' && localStorage.getItem('budget_has_linked_google') === 'true') {
-        autoUploadToCloud();
-      }
       localStorage.setItem('budget_tracker_sidebar_collapsed', state.sidebarCollapsed ? 'true' : 'false');
       localStorage.setItem('budget_tracker_week_start', String(state.weekStart));
       localStorage.setItem('budget_tracker_hide_completed', state.hideCompleted ? 'true' : 'false');
@@ -3933,11 +4512,18 @@
 
     // --- Get Config Helpers ---
     function getConfig() {
-      const row = state.data.find(d => d.index_ === 1)?.row || [];
+      const configRecord = databaseArray.find(r => r.table === 'config_basic' && !r.deleted);
+      if (configRecord) {
+        return {
+          currency: configRecord.data.currency || '$',
+          startBalance: parseFloat(configRecord.data.startBalance) || 0,
+          userName: configRecord.data.userName || ''
+        };
+      }
       return {
-        currency: row[bIdx.cur] || '$',
-        startBalance: parseFloat(row[bIdx.bal]) || 0,
-        userName: row[bIdx.name] || 'User'
+        currency: '$',
+        startBalance: 0,
+        userName: ''
       };
     }
 
@@ -3953,11 +4539,13 @@
     // --- Computed State Views ---
     function getSubcategories() {
       const subs = { Income: [], Savings: [], Bills: [], Debt: [], Expense: [] };
-      state.data.slice(1).forEach(d => {
-        const cat = d.row[sIdx.cat];
-        const sub = d.row[sIdx.sub];
-        if (cat && sub && subs[cat]) {
-          subs[cat].push({ name: sub, index_: d.index_ });
+      databaseArray.forEach(r => {
+        if (r.table === 'categories' && !r.deleted) {
+          const cat = r.data.category;
+          const sub = r.data.subcategory;
+          if (cat && sub && subs[cat]) {
+            subs[cat].push({ name: sub, index_: r.id });
+          }
         }
       });
       return subs;
@@ -4150,7 +4738,7 @@
         indicatorBg = '#f59e0b';
         iconGradient = 'linear-gradient(135deg, #fbbf24, #f59e0b)';
         cardBgStyle = 'background: linear-gradient(135deg, rgba(255, 251, 235, 0.85) 0%, rgba(254, 243, 199, 0.7) 100%) !important; border-color: rgba(245, 158, 11, 0.25) !important;';
-      } else if (labelLower.includes('debt target')) {
+      } else if (labelLower.includes('debt target') || labelLower.includes('debt goal')) {
         indicatorBg = '#fbbf24';
         iconGradient = 'linear-gradient(135deg, #fcd34d, #fbbf24)';
         cardBgStyle = 'background: linear-gradient(135deg, rgba(255, 251, 235, 0.85) 0%, rgba(254, 243, 199, 0.7) 100%) !important; border-color: rgba(245, 158, 11, 0.2) !important;';
@@ -4181,7 +4769,7 @@
     }
 
     // --- Premium Custom Donut Chart Generator ---
-    function generateDonutChart(chartData, size = 160) {
+    function generateDonutChart(chartData, size = 160, chartId = '') {
       const radius = size / 2;
       const innerRadius = radius * 0.65; // slightly thinner for more elegant proportion
       const outerRadius = radius;
@@ -4200,9 +4788,13 @@
       chartData.forEach(d => {
         const sliceAngle = (d.value / total) * 2 * Math.PI;
         const endAngle = currentAngle + sliceAngle;
+        const escapedName = d.name.replace(/'/g, "\\'");
+        const sliceClass = chartId ? `${chartId}-slice-${d.name.toLowerCase().replace(/\s+/g, '-')}` : '';
+        const percent = (d.value / total) * 100;
         
         if (d.value === total) {
-          paths += `<circle cx="${radius}" cy="${radius}" r="${(outerRadius + innerRadius) / 2}" fill="none" stroke="${d.color}" stroke-width="${outerRadius - innerRadius}" class="chart-slice" filter="url(#premium-chart-shadow)">
+          paths += `<circle cx="${radius}" cy="${radius}" r="${(outerRadius + innerRadius) / 2}" fill="none" stroke="${d.color}" stroke-width="${outerRadius - innerRadius}" class="chart-slice ${sliceClass}" filter="url(#premium-chart-shadow)" style="transition: all 0.3s ease; cursor: pointer;"
+            ${chartId ? `onmouseenter="window.handleGenDonutHover('${chartId}', '${escapedName}', ${d.value}, 100, this)" onmouseleave="window.handleGenDonutLeave('${chartId}', ${total})"` : ''}>
             <title>${d.name}: ${formatMoney(d.value)}</title>
           </circle>`;
           return;
@@ -4230,14 +4822,17 @@
           Z
         `;
         
-        paths += `<path d="${dPath}" fill="${d.color}" class="chart-slice" stroke="#ffffff" stroke-width="2.5" filter="url(#premium-chart-shadow)">
+        paths += `<path d="${dPath}" fill="${d.color}" class="chart-slice ${sliceClass}" stroke="#ffffff" stroke-width="2.5" filter="url(#premium-chart-shadow)" style="transition: all 0.3s ease; cursor: pointer;"
+          ${chartId ? `onmouseenter="window.handleGenDonutHover('${chartId}', '${escapedName}', ${d.value}, ${percent}, this)" onmouseleave="window.handleGenDonutLeave('${chartId}', ${total})"` : ''}>
           <title>${d.name}: ${formatMoney(d.value)}</title>
         </path>`;
         
         currentAngle = endAngle;
       });
       
-      return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="overflow: visible;">
+      const formattedTotal = formatMoney(total);
+      
+      return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="overflow: visible;" ${chartId ? `id="${chartId}"` : ''}>
         <defs>
           <filter id="premium-chart-shadow" x="-30%" y="-30%" width="160%" height="160%">
             <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.04" />
@@ -4247,8 +4842,46 @@
         <g>${paths}</g>
         <!-- Center inner soft glow element -->
         <circle cx="${radius}" cy="${radius}" r="${innerRadius - 4}" fill="rgba(255, 255, 255, 0.9)" stroke="rgba(255, 255, 255, 0.6)" stroke-width="1" />
+        ${chartId ? `
+        <g class="pointer-events-none">
+          <text x="${radius}" y="${radius - 12}" text-anchor="middle" font-family="var(--font-body)" font-weight="900" font-size="11" fill="#94a3b8" letter-spacing="0.08em" id="${chartId}-label">TOTAL</text>
+          <text x="${radius}" y="${radius + 16}" text-anchor="middle" font-family="var(--font-display)" font-weight="900" font-size="${size >= 240 ? 22 : 16}" fill="#1e293b" id="${chartId}-value">${formattedTotal}</text>
+        </g>
+        ` : ''}
       </svg>`;
     }
+
+    // --- Interactive donut hover handlers ---
+    window.handleGenDonutHover = function(chartId, name, value, percent, el) {
+      const labelEl = document.getElementById(chartId + '-label');
+      const valEl = document.getElementById(chartId + '-value');
+      if (labelEl) labelEl.textContent = name.toUpperCase();
+      if (valEl) valEl.textContent = formatMoney(value);
+      
+      const svg = document.getElementById(chartId);
+      if (svg) {
+        svg.querySelectorAll('.chart-slice').forEach(p => {
+          p.style.opacity = p === el ? '1' : '0.25';
+          p.style.transform = p === el ? 'scale(1.03)' : 'scale(1)';
+          p.style.transformOrigin = p === el ? '50% 50%' : '';
+        });
+      }
+    };
+
+    window.handleGenDonutLeave = function(chartId, totalValue) {
+      const labelEl = document.getElementById(chartId + '-label');
+      const valEl = document.getElementById(chartId + '-value');
+      if (labelEl) labelEl.textContent = 'TOTAL';
+      if (valEl) valEl.textContent = formatMoney(totalValue);
+      
+      const svg = document.getElementById(chartId);
+      if (svg) {
+        svg.querySelectorAll('.chart-slice').forEach(p => {
+          p.style.opacity = '1';
+          p.style.transform = '';
+        });
+      }
+    };
 
     // --- Default State Initializer ---
     function initializeDefaultData() {
@@ -4257,127 +4890,12 @@
       // Index 1 is Config
       const configRow = Array(35).fill(null);
       configRow[bIdx.cur] = '$';
-      configRow[bIdx.bal] = 5000;
-      configRow[bIdx.name] = 'Navneet';
+      configRow[bIdx.bal] = 0;
+      configRow[bIdx.name] = '';
       defaultData.push({ index_: 1, row: configRow });
       
-      // Prepopulate standard categories & subcategories
-      const defaultCategories = [
-        { cat: 'Income', sub: 'Salary' },
-        { cat: 'Income', sub: 'Freelance' },
-        { cat: 'Savings', sub: 'Emergency Fund' },
-        { cat: 'Savings', sub: 'Vacation' },
-        { cat: 'Savings', sub: 'Retirement' },
-        { cat: 'Bills', sub: 'Rent' },
-        { cat: 'Bills', sub: 'Electricity' },
-        { cat: 'Bills', sub: 'Internet' },
-        { cat: 'Bills', sub: 'Gym' },
-        { cat: 'Bills', sub: 'Netflix' },
-        { cat: 'Debt', sub: 'Student Loan' },
-        { cat: 'Debt', sub: 'Credit Card' },
-        { cat: 'Expense', sub: 'Groceries' },
-        { cat: 'Expense', sub: 'Dining Out' },
-        { cat: 'Expense', sub: 'Fuel' },
-        { cat: 'Expense', sub: 'Shopping' }
-      ];
-      
+      // No pre-loaded categories, goals, bills, budgets, or transactions
       let idx = 2;
-      defaultCategories.forEach(item => {
-        const row = Array(35).fill(null);
-        row[sIdx.cat] = item.cat;
-        row[sIdx.sub] = item.sub;
-        defaultData.push({ index_: idx++, row: row });
-      });
-      
-      // Prepopulate standard goals list
-      const defaultGoals = [
-        { cat: 'Savings', sub: 'Emergency Fund', goal: 10000 },
-        { cat: 'Savings', sub: 'Vacation', goal: 3000 },
-        { cat: 'Debt', sub: 'Student Loan', goal: 15000 },
-        { cat: 'Debt', sub: 'Credit Card', goal: 2000 }
-      ];
-      
-      defaultGoals.forEach(item => {
-        const row = Array(35).fill(null);
-        row[gIdx.cat] = item.cat;
-        row[gIdx.sub] = item.sub;
-        row[gIdx.goal] = item.goal;
-        defaultData.push({ index_: idx++, row: row });
-      });
-      
-      // Prepopulate recurring schedules / bills
-      const defaultBills = [
-        { cat: 'Bills', sub: 'Rent', freq: 'Monthly', start: '2026-05-01', end: '2026-12-31', ticked: '2026-05-01' },
-        { cat: 'Bills', sub: 'Netflix', freq: 'Monthly', start: '2026-05-10', end: '2026-12-31', ticked: '' },
-        { cat: 'Bills', sub: 'Electricity', freq: 'Monthly', start: '2026-05-15', end: '2026-12-31', ticked: '' },
-        { cat: 'Bills', sub: 'Gym', freq: 'Monthly', start: '2026-05-05', end: '2026-12-31', ticked: '2026-05-05' }
-      ];
-      
-      defaultBills.forEach(item => {
-        const row = Array(35).fill(null);
-        row[cIdx.cat] = item.cat;
-        row[cIdx.sub] = item.sub;
-        row[cIdx.freq] = item.freq;
-        row[cIdx.start] = item.start;
-        row[cIdx.end] = item.end;
-        row[cIdx.ticked] = item.ticked;
-        defaultData.push({ index_: idx++, row: row });
-      });
-      
-      // Prepopulate budget periods and items
-      const currentMonthStart = '2026-05-01';
-      const currentMonthEnd = '2026-05-31';
-      const defaultBudgets = [
-        { cat: 'Income', sub: 'Salary', budget: 4500 },
-        { cat: 'Income', sub: 'Freelance', budget: 500 },
-        { cat: 'Bills', sub: 'Rent', budget: 1200 },
-        { cat: 'Bills', sub: 'Electricity', budget: 150 },
-        { cat: 'Bills', sub: 'Internet', budget: 60 },
-        { cat: 'Bills', sub: 'Netflix', budget: 15 },
-        { cat: 'Bills', sub: 'Gym', budget: 50 },
-        { cat: 'Expense', sub: 'Groceries', budget: 600 },
-        { cat: 'Expense', sub: 'Dining Out', budget: 300 },
-        { cat: 'Expense', sub: 'Fuel', budget: 100 },
-        { cat: 'Expense', sub: 'Shopping', budget: 200 },
-        { cat: 'Savings', sub: 'Emergency Fund', budget: 500 },
-        { cat: 'Savings', sub: 'Vacation', budget: 200 },
-        { cat: 'Debt', sub: 'Student Loan', budget: 300 },
-        { cat: 'Debt', sub: 'Credit Card', budget: 100 }
-      ];
-      
-      defaultBudgets.forEach(item => {
-        const row = Array(35).fill(null);
-        row[bdIdx.start] = currentMonthStart;
-        row[bdIdx.end] = currentMonthEnd;
-        row[bdIdx.cat] = item.cat;
-        row[bdIdx.sub] = item.sub;
-        row[bdIdx.budget] = item.budget;
-        defaultData.push({ index_: idx++, row: row });
-      });
-      
-      // Prepopulate realistic transactions
-      const defaultTransactions = [
-        { date: '2026-05-01', cat: 'Income', sub: 'Salary', amt: 4500, notes: 'Monthly regular payroll' },
-        { date: '2026-05-01', cat: 'Bills', sub: 'Rent', amt: 1200, notes: 'Paid automatically' },
-        { date: '2026-05-03', cat: 'Expense', sub: 'Groceries', amt: 156.40, notes: 'Whole Foods food shopping' },
-        { date: '2026-05-04', cat: 'Expense', sub: 'Dining Out', amt: 72.50, notes: 'Dinner with colleagues' },
-        { date: '2026-05-05', cat: 'Bills', sub: 'Gym', amt: 50, notes: 'Equinox monthly fee' },
-        { date: '2026-05-07', cat: 'Debt', sub: 'Student Loan', amt: 300, notes: 'Direct debit paid' },
-        { date: '2026-05-08', cat: 'Expense', sub: 'Fuel', amt: 45, notes: 'Gas filling up' },
-        { date: '2026-05-10', cat: 'Expense', sub: 'Groceries', amt: 112, notes: 'Weekly grocery refill' },
-        { date: '2026-05-12', cat: 'Income', sub: 'Freelance', amt: 450, notes: 'Antigravity coding contract' },
-        { date: '2026-05-14', cat: 'Expense', sub: 'Shopping', amt: 180, notes: 'Purchased warm jacket' }
-      ];
-      
-      defaultTransactions.forEach(item => {
-        const row = Array(35).fill(null);
-        row[tIdx.date] = item.date;
-        row[tIdx.cat] = item.cat;
-        row[tIdx.sub] = item.sub;
-        row[tIdx.amt] = item.amt;
-        row[tIdx.notes] = item.notes;
-        defaultData.push({ index_: idx++, row: row });
-      });
       
       // Add empty rows up to row index 200 to allow space for insertions
       for (let i = idx; i <= 200; i++) {
@@ -4417,13 +4935,48 @@
       } else {
         state.hideCompleted = false;
       }
+
+      // Restore active tab and active budget period ID from sessionStorage to support page refresh
+      const sessionTab = sessionStorage.getItem('budget_tracker_active_tab');
+      const sessionPeriodId = sessionStorage.getItem('budget_tracker_active_period_id');
+      
+      if (sessionTab !== null) {
+        state.activeTab = sessionTab;
+        state.activeBudgetPeriodId = sessionPeriodId || null;
+      } else {
+        const txs = getTransactions();
+        const periods = getBudgetPeriods(txs);
+        
+        if (periods.length === 0) {
+          state.activeTab = 'setup';
+          state.activeBudgetPeriodId = null;
+        } else {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const currentPeriods = periods.filter(p => {
+            const pStart = new Date(p.start); pStart.setHours(0, 0, 0, 0);
+            const pEnd = new Date(p.end); pEnd.setHours(0, 0, 0, 0);
+            return today >= pStart && today <= pEnd;
+          });
+          
+          if (currentPeriods.length === 1) {
+            state.activeTab = 'budgets';
+            state.activeBudgetPeriodId = currentPeriods[0].id;
+          } else {
+            // Multiple current periods or no current period -> open "my budgets" tab
+            state.activeTab = 'budgets';
+            state.activeBudgetPeriodId = null;
+          }
+        }
+      }
     }
 
     function renderTodayWidget(currentBal, currency) {
       const footer = document.getElementById('sidebar-footer');
       if (!footer) return;
       
-      const isMinimized = state.sidebarCollapsed;
+      const isMobileOrTablet = window.innerWidth <= 1024;
+      const isMinimized = state.sidebarCollapsed && !isMobileOrTablet;
       const today = new Date();
       
       let html = '';
@@ -4431,13 +4984,6 @@
         html = ''; // Do not display clock icon in collapsed state
       } else {
         html = `
-          ${(() => {
-            const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
-            const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
-            const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
-            const syncText = currentSyncStatusText || '';
-            return `<div id="syncStatusIndicatorSidebar" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line; margin-bottom: 0.75rem; width: 100%; justify-content: center; font-size: 0.8rem; padding: 0.5rem; text-align: center; border-radius: 8px;">${syncText}</div>`;
-          })()}
           <div class="today-widget-card">
             <div class="today-widget-card-content">
               <p class="today-label">Today</p>
@@ -4460,7 +5006,10 @@
       const toggleBtn = document.getElementById('toggle-sidebar-btn');
       if (!sidebar || !toggleBtn) return;
       
-      if (state.sidebarCollapsed) {
+      const isMobileOrTablet = window.innerWidth <= 1024;
+      const shouldCollapse = state.sidebarCollapsed && !isMobileOrTablet;
+      
+      if (shouldCollapse) {
         sidebar.classList.add('collapsed');
         toggleBtn.innerHTML = getIconSVG('Menu', 18, 2.5);
         
@@ -4482,12 +5031,25 @@
 
     // --- Core Dynamic UI Rendering Hub ---
     function render() {
-      // Rule 8 Scroll Preservation: Capture scroll container offsets
-      const scrollContainer = document.getElementById('tab-content-container');
-      const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
-      const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
-      const winScrollY = window.scrollY;
-      const winScrollX = window.scrollX;
+      const container = document.getElementById('tab-content-container');
+      const scrollOffset = container ? container.scrollTop : 0;
+
+      // Save current navigation state to sessionStorage to support page refresh
+      sessionStorage.setItem('budget_tracker_active_tab', state.activeTab || 'budgets');
+      if (state.activeBudgetPeriodId) {
+        sessionStorage.setItem('budget_tracker_active_period_id', state.activeBudgetPeriodId);
+      } else {
+        sessionStorage.removeItem('budget_tracker_active_period_id');
+      }
+
+      // Update sidebar visual active state
+      document.querySelectorAll('.menu-item').forEach(btn => {
+        if (btn.getAttribute('data-tab') === state.activeTab && !state.activeBudgetPeriodId) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
 
       const config = getConfig();
       const txs = getTransactions();
@@ -4512,7 +5074,6 @@
       const activePeriod = periods.find(p => p.id === state.activeBudgetPeriodId);
       
       // Select the core container
-      const container = document.getElementById('tab-content-container');
       if (container) {
         container.style.overflow = '';
         container.style.height = '';
@@ -4533,18 +5094,32 @@
         renderGoalsView(container, txs, config);
       } else if (state.activeTab === 'calendar') {
         renderCalendarView(container, config);
+        // Sync schedules sidebar height to calendar on desktop only
+        requestAnimationFrame(() => {
+          const calBox = document.getElementById('calendar-box');
+          const sidebar = document.getElementById('schedules-sidebar');
+          if (!calBox || !sidebar) return;
+          if (window.innerWidth >= 1201) {
+            sidebar.style.maxHeight = calBox.offsetHeight + 'px';
+            sidebar.style.overflowY = 'auto';
+          } else {
+            sidebar.style.maxHeight = '';
+            sidebar.style.overflowY = '';
+          }
+        });
       } else if (state.activeTab === 'setup') {
         renderSetupView(container, config);
       } else if (state.activeTab === 'new_budget_period') {
         renderNewBudgetPeriodView(container, config);
       }
 
-      // Rule 8 Scroll Preservation: Restore scroll offsets
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollTop;
-        scrollContainer.scrollLeft = scrollLeft;
+      // Restore scroll offset
+      if (container) {
+        container.scrollTop = scrollOffset;
       }
-      window.scrollTo(winScrollX, winScrollY);
+      
+      // Restore GAPI/GIS sync status badge display and hooks
+      setSyncStatus(currentSyncStatusText, currentSyncStatusType);
     }
 
     // --- Render View 1: Budgets List ---
@@ -4566,7 +5141,8 @@
         const target = p.settings.filter(s => s.category !== 'Income').reduce((s, i) => s + i.amount, 0);
         const pct = target > 0 ? (spent / target) * 100 : 0;
         const isOver = spent > target;
-        const isCurrent = new Date() >= p.start && new Date() <= p.end;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const isCurrent = today >= p.start && today <= p.end;
         
         cardsHtml += `
           <div class="budget-period-card ${isCurrent ? 'active' : ''}" onclick="selectBudgetPeriod('${p.id}')">
@@ -4585,7 +5161,7 @@
               </div>
               <div class="budget-card-stat" style="text-align: right;">
                 <span class="budget-card-stat-label">Target Limit</span>
-                <span class="budget-card-stat-val" style="color: var(--slate-400);">${formatMoney(target, config.currency)}</span>
+                <span class="budget-card-stat-val" style="color: var(--slate-800);">${formatMoney(target, config.currency)}</span>
               </div>
             </div>
             
@@ -4607,18 +5183,9 @@
       
       container.innerHTML = `
         <div class="page-container">
-          <header class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
-            <div>
-              <h1 class="page-title" style="margin-bottom: 0;">My Budgets</h1>
-              <p class="page-subtitle" style="margin-top: 0.25rem;">Historical snapshots and future planning cycles.</p>
-            </div>
-            ${(() => {
-              const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
-              const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
-              const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
-              const syncText = currentSyncStatusText || '';
-              return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
-            })()}
+          <header class="page-header">
+            <h1 class="page-title">My Budgets</h1>
+            <p class="page-subtitle">Historical snapshots and future planning cycles.</p>
           </header>
           <div class="budgets-grid">
             ${cardsHtml}
@@ -4689,6 +5256,7 @@
         }).sort((a, b) => b.actual - a.actual).forEach(row => {
           const variance = cat === 'Income' ? row.actual - row.planned : row.planned - row.actual;
           const isPositive = variance >= 0;
+          const isNAProgress = row.planned === 0 && row.actual > 0;
           const progress = row.planned > 0 ? (row.actual / row.planned) * 100 : (row.actual > 0 ? 100 : 0);
           
           const progressGradient = cat === 'Income' ? 'background: linear-gradient(90deg, #34d399, #10b981) !important;' : (progress > 100 ? 'background: linear-gradient(90deg, #f43f5e, #e11d48) !important;' : 'background: linear-gradient(90deg, #818cf8, #4f46e5) !important;');
@@ -4703,10 +5271,8 @@
               </td>
               <td class="py-5 px-4 pl-10">
                 <div class="flex items-center gap-4">
-                  <div class="flex-1 glow-progress-track">
-                    <div class="glow-progress-fill" style="width: ${Math.max(0, Math.min(100, progress))}%; ${progressGradient}"></div>
-                  </div>
-                  <span class="text-[10px] font-black text-slate-500 tabular-nums w-10">${Math.round(progress)}%</span>
+                  ${isNAProgress ? '' : `<div class="flex-1 glow-progress-track"><div class="glow-progress-fill" style="width: ${Math.max(0, Math.min(100, progress))}%; ${progressGradient}"></div></div>`}
+                  <span class="text-[10px] font-black text-slate-500 tabular-nums w-10">${isNAProgress ? 'N/A' : Math.round(progress) + '%'}</span>
                 </div>
               </td>
             </tr>
@@ -4799,6 +5365,7 @@
       }));
       
       categoryComparison.forEach(cat => {
+        const isNAProgress = cat.budget === 0 && cat.actual > 0;
         const percent = cat.budget > 0 ? (cat.actual / cat.budget) * 100 : (cat.actual > 0 ? 100 : 0);
         const variance = cat.cat === 'Income' ? cat.actual - cat.budget : cat.budget - cat.actual;
         const isPositive = variance >= 0;
@@ -4841,14 +5408,12 @@
             </div>
             
             <!-- Center Side: Sleek Thinner Progress Bar (4px height) -->
-            <div class="flex-1 glow-progress-track" style="height: 4px !important; margin: 0 6px !important;">
-              <div class="glow-progress-fill" style="width: ${Math.max(0, Math.min(100, percent))}%; background: linear-gradient(90deg, ${gradColors.start}, ${gradColors.end}) !important;"></div>
-            </div>
+            ${isNAProgress ? '' : `<div class="flex-1 glow-progress-track" style="height: 4px !important; margin: 0 6px !important;"><div class="glow-progress-fill" style="width: ${Math.max(0, Math.min(100, percent))}%; background: linear-gradient(90deg, ${gradColors.start}, ${gradColors.end}) !important;"></div></div>`}
             
-            <!-- Right Side: Clean Percentage Spent (No words) -->
+            <!-- Right Side: Clean Percentage Spent -->
             <div class="text-right flex items-center justify-end" style="text-align: right !important; flex: 0 0 50px; shrink-0;">
-              <span class="text-sm font-black tabular-nums" style="font-size: 0.95rem; font-family: var(--font-display); color: ${percentColor};">
-                ${Math.round(percent)}%
+              <span class="text-sm font-black tabular-nums" style="font-size: 0.95rem; font-family: var(--font-display); color: ${isNAProgress ? '#94a3b8' : percentColor};">
+                ${isNAProgress ? 'N/A' : Math.round(percent) + '%'}
               </span>
             </div>
           </div>
@@ -4930,7 +5495,7 @@
           icon: 'Clock',
           gradient: 'linear-gradient(135deg, #818cf8, #4f46e5)',
           title: 'Daily Allowance',
-          desc: `You have ${formatMoney(dailyCap, config.currency)}/day remaining for ${daysLeft} days.`
+          desc: `You have ${formatMoney(dailyCap, config.currency)}/day remaining for ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}.`
         });
       } else {
         insightsList.push({
@@ -5062,12 +5627,12 @@
                 <button onclick="deselectBudgetPeriod()" class="p-2 hover:bg-indigo-50/50 rounded-xl text-slate-500 premium-header-glass-btn transition-all flex items-center justify-center">
                   ${getIconSVG('ChevronLeft', 24, 2.5)}
                 </button>
-                <h1 class="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3" style="font-family: var(--font-display); font-size: 2rem; margin: 0; display: flex !important; align-items: center !important;">
+                <h1 class="page-title" style="margin: 0; display: flex !important; align-items: center !important;">
                   ${getPeriodHeading(period.start, period.end)}
                 </h1>
               </div>
             </div>
-            <div class="flex items-center gap-3" style="display: flex !important; align-items: center !important; gap: 0.75rem !important;">
+            <div class="flex items-center gap-3" style="display: flex !important; align-items: center !important; gap: 0.75rem !important; flex-wrap: wrap !important;">
               <button onclick="openAddTransactionModal()" 
                 class="btn btn-primary rounded-full px-5 py-2.5 text-xs font-black uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-all"
                 style="font-family: var(--font-display); box-shadow: var(--shadow-sm) !important;">
@@ -5083,13 +5648,6 @@
                 style="font-family: var(--font-display); box-shadow: var(--shadow-sm) !important;">
                 ${getIconSVG('Trash2', 13, 2.5)} Delete
               </button>
-              ${(() => {
-                const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
-                const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
-                const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
-                const syncText = currentSyncStatusText || '';
-                return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
-              })()}
             </div>
           </header>
           
@@ -5114,7 +5672,7 @@
                   <!-- Donut Chart (260px) -->
                   <div class="flex-1 flex flex-col items-center justify-center p-4 min-h-[280px] w-full h-full justify-center" style="display: flex !important; justify-content: center !important; align-items: center !important;">
                     <div id="breakdown-donut-container" class="mb-1" style="display: flex !important; justify-content: center !important; align-items: center !important;">
-                      ${pieData.length > 0 ? generateDonutChart(pieData, 260) : `<div class="h-[260px] w-[260px] rounded-full border-4 border-dashed border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase">No Data</div>`}
+                      ${pieData.length > 0 ? generateDonutChart(pieData, 260, 'cashflow-donut') : `<div class="h-[260px] w-[260px] rounded-full border-4 border-dashed border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase">No Data</div>`}
                     </div>
                   </div>
                   
@@ -5132,8 +5690,18 @@
                       const bgClass = row.color ? row.color.replace('text-', 'bg-') + '/10' : 'bg-slate-100';
                       const rowClass = row.bold ? 'details-glass-row active-row' : 'details-glass-row';
                       const valueColorClass = row.color || 'text-slate-800';
+                      // Build hover bindings that link list rows to donut slices
+                      const isMatchingSlice = pieData.find(pd => pd.name === row.label);
+                      const escapedLabel = row.label.replace(/'/g, "\\'");
+                      let hoverAttr = '';
+                      if (isMatchingSlice) {
+                        const totalPieVal = pieData.reduce((sum, pd) => sum + pd.value, 0);
+                        const slicePct = (isMatchingSlice.value / totalPieVal) * 100;
+                        const sliceClass = 'cashflow-donut-slice-' + row.label.toLowerCase().replace(/\s+/g, '-');
+                        hoverAttr = `onmouseenter="let el=document.querySelector('.${sliceClass}');if(el)window.handleGenDonutHover('cashflow-donut','${escapedLabel}',${isMatchingSlice.value},${slicePct},el)" onmouseleave="window.handleGenDonutLeave('cashflow-donut',${totalPieVal})"`;
+                      }
                       return `
-                        <div class="${rowClass}">
+                        <div class="${rowClass}" ${hoverAttr} style="cursor:${isMatchingSlice ? 'pointer' : 'default'}">
                           <div class="cash-flow-row-left" style="display: flex !important; align-items: center !important; gap: 8px !important;">
                             <div class="cash-flow-icon-wrapper ${bgClass} ${row.color || 'text-slate-400'}" style="box-shadow: 0 2px 4px rgba(0,0,0,0.01) !important;">
                               ${getIconSVG(row.icon, 12, 2.5)}
@@ -5254,15 +5822,21 @@
                   <!-- Donut Chart -->
                   <div class="flex-1 flex flex-col items-center justify-center p-4 min-h-[280px] w-full justify-center" style="display: flex !important; justify-content: center !important; align-items: center !important;">
                     <div id="expense-donut-container" class="mb-1" style="display: flex !important; justify-content: center !important; align-items: center !important;">
-                      ${expenseChartData.length > 0 ? generateDonutChart(expenseChartData, 260) : `<div class="h-[260px] w-[260px] rounded-full border-4 border-dashed border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase">No Data</div>`}
+                      ${expenseChartData.length > 0 ? generateDonutChart(expenseChartData, 260, 'expense-donut') : `<div class="h-[260px] w-[260px] rounded-full border-4 border-dashed border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase">No Data</div>`}
                     </div>
                   </div>
                   
                   <!-- Expense Legend List (Dot & Name Only) -->
                   <div class="expense-legend-list custom-scrollbar">
                     ${expenseChartData.length > 0 ? expenseChartData.map(row => {
+                      const totalExpenseVal = expenseChartData.reduce((s, r) => s + r.value, 0);
+                      const slicePct = (row.value / totalExpenseVal) * 100;
+                      const escapedName = row.name.replace(/'/g, "\\'");
+                      const sliceClass = 'expense-donut-slice-' + row.name.toLowerCase().replace(/\s+/g, '-');
                       return `
-                        <div class="details-glass-row" style="justify-content: flex-start !important; gap: 10px !important; padding: 10px 14px !important; border-left: none !important; box-shadow: none !important; background: rgba(255,255,255,0.2) !important;">
+                        <div class="details-glass-row" style="justify-content: flex-start !important; gap: 10px !important; padding: 10px 14px !important; border-left: none !important; box-shadow: none !important; background: rgba(255,255,255,0.2) !important; cursor: pointer;"
+                          onmouseenter="let el=document.querySelector('.${sliceClass}');if(el)window.handleGenDonutHover('expense-donut','${escapedName}',${row.value},${slicePct},el)"
+                          onmouseleave="window.handleGenDonutLeave('expense-donut',${totalExpenseVal})">
                           <span style="width: 10px; height: 10px; border-radius: 9999px; background-color: ${row.color}; flex-shrink: 0; display: inline-block; box-shadow: 0 0 6px ${row.color}80 !important;"></span>
                           <span class="cash-flow-label" style="font-weight: 700 !important; color: var(--slate-700) !important; font-size: 11px !important;">${row.name}</span>
                         </div>
@@ -5389,22 +5963,13 @@
       
       container.innerHTML = `
         <div class="page-container">
-          <header class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+          <header class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
             <div>
               <h1 class="page-title" style="margin-bottom: 0;">Transaction Tracker</h1>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <button class="btn btn-primary" onclick="openAddTransactionModal()">
-                ${getIconSVG('Plus', 16, 2.5)} Add Transaction
-              </button>
-              ${(() => {
-                const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
-                const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
-                const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
-                const syncText = currentSyncStatusText || '';
-                return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
-              })()}
-            </div>
+            <button class="btn btn-primary" onclick="openAddTransactionModal()">
+              ${getIconSVG('Plus', 16, 2.5)} Add Transaction
+            </button>
           </header>
           
           <!-- Unified Ledger Table Card -->
@@ -5503,15 +6068,8 @@
       
       container.innerHTML = `
         <div class="page-container">
-          <header class="page-header" style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-            <h1 class="page-title" style="font-size: 1.875rem; font-weight: 900; letter-spacing: -0.025em; margin: 0;">Goal Tracker</h1>
-            ${(() => {
-              const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
-              const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
-              const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
-              const syncText = currentSyncStatusText || '';
-              return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
-            })()}
+          <header class="page-header" style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+            <h1 class="page-title" style="margin: 0;">Goal Tracker</h1>
           </header>
           
           <!-- Stats Summary -->
@@ -5519,7 +6077,7 @@
             ${renderStatCard('Total Saved', formatMoney(totalSavingsSaved, config.currency), 'TrendingUp', 'bg-blue-500', 'bg-blue-50/50', 'text-blue-500', 'text-blue-700', 'border-blue-100')}
             ${renderStatCard('Savings Goal', formatMoney(totalSavingsGoal, config.currency), 'Target', 'bg-blue-400', 'bg-blue-50/50', 'text-blue-400', 'text-blue-700', 'border-blue-100')}
             ${renderStatCard('Debt Paid', formatMoney(totalDebtPaid, config.currency), 'TrendingDown', 'bg-amber-500', 'bg-amber-50/50', 'text-amber-500', 'text-amber-700', 'border-amber-100')}
-            ${renderStatCard('Debt Target', formatMoney(totalDebtGoal, config.currency), 'Flag', 'bg-amber-400', 'bg-amber-50/50', 'text-amber-400', 'text-amber-700', 'border-amber-100')}
+            ${renderStatCard('Debt Goal', formatMoney(totalDebtGoal, config.currency), 'Flag', 'bg-amber-400', 'bg-amber-50/50', 'text-amber-400', 'text-amber-700', 'border-amber-100')}
           </div>
           
           <!-- Savings Section -->
@@ -5657,7 +6215,7 @@
                 <span class="schedule-detail-text uppercase">${billData?.frequency || 'Not Set'}</span>
               </div>
               <div class="schedule-detail-row">
-                ${getIconSVG('Activity', 10, 2.5)}
+                ${getIconSVG('CalendarDays', 12, 2.5)}
                 <span class="schedule-detail-text">${scheduleRange}</span>
               </div>
             </div>
@@ -5675,20 +6233,18 @@
       }
       
       container.innerHTML = `
-        <div class="page-container" style="height: 100%; display: flex; flex-direction: column;">
+        <div class="page-container calendar-page-container" style="display: flex; flex-direction: column;">
           <header class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
-            <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
-              <div>
-                <h1 class="page-title" style="margin-bottom: 0;">Calendar</h1>
-                <p class="page-subtitle" style="font-size: 0.875rem; color: var(--slate-500); font-weight: 500; margin-top: 0.25rem;">Bill and Debt Tracking</p>
-              </div>
-              <div class="calendar-nav-wrapper" style="margin-top: 0.25rem;">
+            <div>
+              <h1 class="page-title" style="margin-bottom: 0;">Calendar</h1>
+              <p class="page-subtitle" style="font-size: 0.875rem; color: var(--slate-500); font-weight: 500; margin-top: 0.25rem;">Bill and Debt Tracking</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+              <div class="calendar-nav-wrapper">
                 <button onclick="adjustCalendarMonth(-1)" class="calendar-nav-btn-arrows">${getIconSVG('ChevronLeft', 18, 2.5)}</button>
                 <span class="calendar-nav-title">${monthName}</span>
                 <button onclick="adjustCalendarMonth(1)" class="calendar-nav-btn-arrows">${getIconSVG('ChevronRight', 18, 2.5)}</button>
               </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
               <button onclick="toggleHideCompletedBills()" class="calendar-control-btn ${state.hideCompleted ? 'active' : 'inactive'}">
                 ${state.hideCompleted ? getIconSVG('EyeOff', 14, 2.5) : getIconSVG('Eye', 14, 2.5)}
                 <span>${state.hideCompleted ? 'Hidden Completed' : 'Showing All'}</span>
@@ -5697,29 +6253,26 @@
                 ${getIconSVG('Calendar', 14, 2.5)}
                 <span>${weekStartVal === 0 ? 'Starts Sun' : 'Starts Mon'}</span>
               </button>
-              ${(() => {
-                const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
-                const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
-                const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
-                const syncText = currentSyncStatusText || '';
-                return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
-              })()}
             </div>
           </header>
           
           <div class="calendar-layout-grid">
-            <!-- Left Side: Calendar Box -->
-            <div class="calendar-container" style="margin-bottom: 0; min-height: 500px;">
-              <div class="calendar-grid-header" style="display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--slate-100); background: rgba(248, 250, 252, 0.5);">
-                ${headerCells}
-              </div>
-              <div class="calendar-grid-body" style="display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, 1fr); flex: 1; min-height: 0;">
-                ${dayCells}
+            <!-- Left Side: Calendar Box (scrollable on mobile like ub.html) -->
+            <div class="calendar-container" style="margin-bottom: 0; min-height: 500px; overflow: hidden;" id="calendar-box">
+              <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <div style="min-width: 560px;">
+                  <div class="calendar-grid-header" style="display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--slate-100); background: rgba(248, 250, 252, 0.5);">
+                    ${headerCells}
+                  </div>
+                  <div class="calendar-grid-body" style="display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, 1fr); flex: 1; min-height: 0;">
+                    ${dayCells}
+                  </div>
+                </div>
               </div>
             </div>
             
             <!-- Right Side: Schedules Panel -->
-            <div class="schedules-sidebar" style="max-height: 600px; overflow-y: auto;">
+            <div class="schedules-sidebar" id="schedules-sidebar">
               <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest" style="margin-bottom: 1rem;">Recurring Schedules</h2>
               <div class="schedules-list custom-scrollbar">
                 ${schedulesHtml}
@@ -5830,17 +6383,21 @@
         `;
       });
       
+      const configConnected = localStorage.getItem(STORAGE_KEY_HAS_LINKED) === 'true';
+
       container.innerHTML = `
         <div class="page-container">
-          <header class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
-            <h1 class="page-title" style="margin: 0;">Settings</h1>
-            ${(() => {
-              const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
-              const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
-              const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
-              const syncText = currentSyncStatusText || '';
-              return `<div id="syncStatusIndicator" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line;">${syncText}</div>`;
-            })()}
+          <header class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <h1 class="page-title" style="margin-bottom: 0;">Settings</h1>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+              <a href="https://youtube.com" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 0.55rem; background: #e11d48; color: white; text-decoration: none; border-radius: 0.65rem; padding: 0.6rem 1.15rem; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.01em; box-shadow: 0 4px 14px rgba(225,29,72,0.35); transition: background 0.2s, transform 0.15s; white-space: nowrap;" onmouseover="this.style.background='#be123c';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#e11d48';this.style.transform=''">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/></svg>
+                Watch Tutorial
+              </a>
+              <div id="syncStatusIndicator" class="sync-status" style="display: none;"></div>
+            </div>
           </header>
           
           <!-- Basic parameters -->
@@ -5866,7 +6423,10 @@
                 <div class="setup-config-icon">${getIconSVG('Wallet', 16, 2.5)}</div>
                 <span class="setup-config-label">Initial/Start Balance</span>
               </div>
-              <input type="number" class="setup-config-input hide-spin-buttons" value="${config.startBalance}" onblur="updateConfigBalance(this.value)">
+              <div style="position: relative; display: flex; align-items: center;">
+                <span style="position: absolute; left: 12px; font-weight: 800; font-size: 14px; color: var(--slate-500); pointer-events: none; z-index: 1;">${config.currency || '$'}</span>
+                <input type="number" class="setup-config-input hide-spin-buttons" style="padding-left: 28px;" value="${config.startBalance}" onblur="updateConfigBalance(this.value)">
+              </div>
             </div>
           </div>
           
@@ -5880,63 +6440,44 @@
             </div>
           </div>
           
-          <!-- Backup Options Section (buttonlayout.jpeg style) -->
-          <div style="margin-top: 3rem; margin-bottom: 3rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-              <h2 class="categories-config-title" style="margin: 0; font-family: var(--font-display); font-weight: 900; font-size: 1.25rem; color: var(--slate-800);">Backup Options</h2>
-              <button class="btn btn-danger" onclick="clearAllData()" style="display: flex; align-items: center; gap: 0.5rem;">
-                ${getIconSVG('Trash2', 14, 2.5)} Clear Data
-              </button>
+          <!-- Backup Options -->
+          <div style="background: white; border-radius: 1.25rem; border: 1px solid var(--slate-200); box-shadow: var(--shadow-sm); padding: 1.5rem 1.75rem; margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <h2 style="font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; color: var(--slate-800); margin: 0; letter-spacing: -0.01em;">Backup Options</h2>
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <button onclick="clearAllData()" style="display: inline-flex; align-items: center; gap: 0.4rem; background: var(--rose-50); color: var(--rose-600); border: 1px solid var(--rose-100); border-radius: 0.6rem; padding: 0.55rem 1rem; font-size: 0.82rem; font-weight: 700; cursor: pointer; white-space: nowrap;">
+                  ${getIconSVG('Trash2', 14, 2.5)} Clear Data
+                </button>
+              </div>
             </div>
-            
-            <div class="backup-restore-card" style="padding: 2rem; margin-bottom: 0;">
-              <div class="backup-grid">
-                <div class="backup-panel backup-divider-panel">
-                  <h3 class="backup-title">
-                    ${getIconSVG('Wallet', 18, 2.5)} Manual backup
-                  </h3>
-                  <p class="backup-desc" style="margin-bottom: 1.5rem;">Backup data on your device</p>
-                  
-                  <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: auto;">
-                    <button class="btn btn-secondary" onclick="exportDataToJSON()" style="flex: 1; justify-content: center;">
-                      Export data
-                    </button>
-                    <div class="file-input-wrapper" style="flex: 1;">
-                      <button class="btn btn-secondary" style="width: 100%; justify-content: center;">Import data</button>
-                      <input type="file" id="import-json-file-input" accept=".json" onchange="importDataFromJSON(event)" />
-                    </div>
+            <div class="backup-columns">
+              <!-- Manual Backup -->
+              <div style="background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.15); border-radius: 1rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #059669; font-weight: 800; font-size: 0.9rem;">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Manual backup
+                </div>
+                <p style="font-size: 0.8rem; color: var(--slate-500); margin: 0;">Backup data on your device</p>
+                <div style="display: flex; gap: 0.75rem;">
+                  <button onclick="exportDataToJSON()" style="flex: 1; padding: 0.6rem 0; border: 1px solid var(--slate-200); border-radius: 0.6rem; background: white; font-size: 0.8rem; font-weight: 700; color: var(--slate-700); cursor: pointer;">Export data</button>
+                  <div class="file-input-wrapper" style="flex: 1; position: relative;">
+                    <button onclick="confirmImportData()" style="width: 100%; padding: 0.6rem 0; border: 1px solid var(--slate-200); border-radius: 0.6rem; background: white; font-size: 0.8rem; font-weight: 700; color: var(--slate-700); cursor: pointer;">Import data</button>
+                    <input type="file" id="import-json-file-input" accept=".json" onchange="importDataFromJSON(event)" style="display:none;" />
                   </div>
-                  <p style="font-size: 0.75rem; color: var(--slate-400); margin-top: 0.75rem; line-height: 1.4;">
-                    No automatic sync across devices. Data is stored locally, and clearing browser cache deletes your data.
-                  </p>
                 </div>
-                
-                <div class="backup-panel">
-                  <h3 class="backup-title">
-                    ${getIconSVG('Activity', 18, 2.5)} Automatic backup
-                  </h3>
-                  <p class="backup-desc" style="margin-bottom: 1.5rem;">Backup data on your Google Drive</p>
-                  
-                  ${(() => {
-                    const isLinked = localStorage.getItem('budget_has_linked_google') === 'true';
-                    const authBtnText = isLinked ? 'Disconnect' : 'Connect to Google Drive';
-                    const authBtnClass = isLinked ? 'btn btn-danger' : 'btn btn-primary';
-                    const syncDisplay = (isLinked && currentSyncStatusText) ? 'inline-flex' : 'none';
-                    const syncClass = currentSyncStatusType ? ('sync-status ' + currentSyncStatusType) : 'sync-status';
-                    const syncText = currentSyncStatusText || '';
-                    return `
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: auto; width: 100%;">
-                      <button id="authBtn" class="${authBtnClass}" onclick="handleAuthClick()" style="width: 100%; justify-content: center;">
-                        ${authBtnText}
-                      </button>
-                      <div id="syncStatusIndicatorSetup" class="${syncClass}" style="display: ${syncDisplay}; white-space: pre-line; width: 100%; justify-content: center; font-size: 0.8rem; padding: 0.5rem; text-align: center; border-radius: 8px;">${syncText}</div>
-                    </div>
-                    `;
-                  })()}
-                  <p style="font-size: 0.75rem; color: var(--slate-400); margin-top: 0.75rem; line-height: 1.4;">
-                    Connect using the same account on other devices for automatic sync. Mobile/tablet needs to be reconnected after one hour.
-                  </p>
+                <p style="font-size: 0.72rem; color: var(--slate-400); margin: 0; font-style: italic;">No automatic sync across devices. Data is stored locally, and clearing browser cache deletes your data.</p>
+              </div>
+              <!-- Automatic Backup -->
+              <div style="background: rgba(79,70,229,0.04); border: 1px solid rgba(79,70,229,0.12); border-radius: 1rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #4f46e5; font-weight: 800; font-size: 0.9rem;">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.85"/></svg>
+                  Automatic backup
                 </div>
+                <p style="font-size: 0.8rem; color: var(--slate-500); margin: 0;">Backup data on your Google Drive</p>
+                <button id="authBtnSetupCard" onclick="handleAuthClick()" class="${configConnected ? 'btn-secondary' : 'btn-primary'}" style="font-size: 0.85rem; font-weight: 800; cursor: pointer; padding: 0.75rem 1.25rem; border-radius: 0.75rem; border: ${configConnected ? '1px solid var(--rose-100)' : 'none'}; color: ${configConnected ? 'var(--rose-600)' : 'white'}; background: ${configConnected ? 'var(--rose-50)' : 'var(--primary)'}; align-self: flex-start;">
+                  ${configConnected ? 'Disconnect Drive' : 'Connect to Google Drive'}
+                </button>
+                <p style="font-size: 0.72rem; color: var(--slate-400); margin: 0; font-style: italic;">Connect using the same account on other devices for automatic sync. Mobile/tablet needs to be reconnected after one hour.</p>
               </div>
             </div>
           </div>
@@ -6916,39 +7457,133 @@
 
     // --- Basic Setup Parameters Actions ---
     function updateConfigName(val) {
-      const patch = Array(35).fill(undefined);
-      patch[bIdx.name] = val.trim();
-      updateItem(1, patch);
+      databaseArray = databaseArray.map(record =>
+        record.id === "config_basic"
+        ? {
+            ...record,
+            updatedAt: Date.now(),
+            data: { ...record.data, userName: val.trim() }
+          }
+        : record
+      );
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
     }
 
     // Basic Setup Currency
     function updateConfigCurrency(val) {
-      const patch = Array(35).fill(undefined);
-      patch[bIdx.cur] = val.trim();
-      updateItem(1, patch);
+      databaseArray = databaseArray.map(record =>
+        record.id === "config_basic"
+        ? {
+            ...record,
+            updatedAt: Date.now(),
+            data: { ...record.data, currency: val.trim() }
+          }
+        : record
+      );
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
     }
 
     // Basic Setup Initial Balance
     function updateConfigBalance(val) {
-      const patch = Array(35).fill(undefined);
-      patch[bIdx.bal] = parseFloat(val) || 0;
-      updateItem(1, patch);
+      databaseArray = databaseArray.map(record =>
+        record.id === "config_basic"
+        ? {
+            ...record,
+            updatedAt: Date.now(),
+            data: { ...record.data, startBalance: parseFloat(val) || 0 }
+          }
+        : record
+      );
+      updateDataState(databaseArray, true);
+      scheduleCloudSync();
+    }
+
+    // Clear All Data — resets databaseArray and local state
+    function clearAllData() {
+      if (confirm('Are you sure you want to delete all local and cloud data? This cannot be undone.')) {
+        const now = Date.now();
+        // 1. Reset databaseArray basic config and soft-delete categories
+        databaseArray = databaseArray.map(record => {
+          if (record.id === "config_basic") {
+            return {
+              ...record,
+              deleted: false,
+              updatedAt: now,
+              data: { userName: "", currency: "$", startBalance: 0 }
+            };
+          } else {
+            return { ...record, deleted: true, updatedAt: now };
+          }
+        });
+        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
+
+        // 2. Reset other tabs' local state
+        state.data = initializeDefaultData();
+        state.weekStart = 1; // Monday start
+        state.hideCompleted = false;
+        state.activeBudgetPeriodId = null;
+        state.activeTab = 'budgets';
+        localStorage.removeItem('budget_tracker_sheet_data');
+        localStorage.removeItem('budget_tracker_week_start');
+        localStorage.removeItem('budget_tracker_hide_completed');
+        localStorage.removeItem('budget_tracker_sidebar_collapsed');
+        
+        saveState();
+        render();
+
+        // 3. Sync immediately to cloud to clear backups
+        scheduleCloudSync(true);
+        alert("All data cleared successfully.");
+      }
+    }
+
+    // Watch Tutorial — opens YouTube
+    function watchTutorial() {
+      window.open('https://youtube.com', '_blank', 'noopener');
+    }
+
+    // Connect to Google Drive — points to GAPI connection logic
+    function connectGoogleDrive() {
+      handleAuthClick();
     }
 
     // Setup Category Add
     function handleNewCategoryOption(event, cat) {
       if (event.key === 'Enter' && event.target.value.trim()) {
         const val = event.target.value.trim();
-        const patch = Array(35).fill(undefined);
-        patch[sIdx.cat] = cat;
-        patch[sIdx.sub] = val;
         
-        const targetIdx = findAvailableRowInTable(sIdx.cat);
-        if (targetIdx !== -1) {
-          updateItem(targetIdx, patch);
-        } else {
-          insertItem(undefined, patch);
+        // Check duplication
+        const exists = databaseArray.some(r => r.table === 'categories' && !r.deleted && r.data.category === cat && r.data.subcategory.toLowerCase() === val.toLowerCase());
+        if (exists) {
+          alert("Category already exists!");
+          return;
         }
+
+        // Reactivate soft deleted if exists
+        const softDeleted = databaseArray.find(r => r.table === 'categories' && r.deleted && r.data.category === cat && r.data.subcategory.toLowerCase() === val.toLowerCase());
+        if (softDeleted) {
+          databaseArray = databaseArray.map(r =>
+            r.id === softDeleted.id ? { ...r, deleted: false, updatedAt: Date.now() } : r
+          );
+        } else {
+          const newRecord = {
+            id: "category_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 5),
+            table: "categories",
+            updatedAt: Date.now(),
+            deleted: false,
+            data: {
+              category: cat,
+              subcategory: val
+            }
+          };
+          databaseArray.push(newRecord);
+        }
+
+        updateDataState(databaseArray, true);
+        scheduleCloudSync();
+
         event.target.value = '';
         const btn = document.getElementById(`add-btn-${cat}`);
         if (btn) btn.disabled = true;
@@ -6960,16 +7595,37 @@
       const input = document.getElementById(inputId);
       if (input && input.value.trim()) {
         const val = input.value.trim();
-        const patch = Array(35).fill(undefined);
-        patch[sIdx.cat] = cat;
-        patch[sIdx.sub] = val;
         
-        const targetIdx = findAvailableRowInTable(sIdx.cat);
-        if (targetIdx !== -1) {
-          updateItem(targetIdx, patch);
-        } else {
-          insertItem(undefined, patch);
+        // Check duplication
+        const exists = databaseArray.some(r => r.table === 'categories' && !r.deleted && r.data.category === cat && r.data.subcategory.toLowerCase() === val.toLowerCase());
+        if (exists) {
+          alert("Category already exists!");
+          return;
         }
+
+        // Reactivate soft deleted if exists
+        const softDeleted = databaseArray.find(r => r.table === 'categories' && r.deleted && r.data.category === cat && r.data.subcategory.toLowerCase() === val.toLowerCase());
+        if (softDeleted) {
+          databaseArray = databaseArray.map(r =>
+            r.id === softDeleted.id ? { ...r, deleted: false, updatedAt: Date.now() } : r
+          );
+        } else {
+          const newRecord = {
+            id: "category_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 5),
+            table: "categories",
+            updatedAt: Date.now(),
+            deleted: false,
+            data: {
+              category: cat,
+              subcategory: val
+            }
+          };
+          databaseArray.push(newRecord);
+        }
+
+        updateDataState(databaseArray, true);
+        scheduleCloudSync();
+
         input.value = '';
         const btn = document.getElementById(`add-btn-${cat}`);
         if (btn) btn.disabled = true;
@@ -6985,28 +7641,73 @@
     }
 
     // Setup Category Delete
-    function deleteCategoryOption(index_, subName) {
+    function deleteCategoryOption(recordId, subName) {
       if (confirm(`Remove ${subName} from custom category lists?`)) {
-        const patch = Array(35).fill(undefined);
-        patch[sIdx.cat] = null;
-        patch[sIdx.sub] = null;
-        updateItem(index_, patch);
+        databaseArray = databaseArray.map(record =>
+          record.id === recordId ? { ...record, deleted: true, updatedAt: Date.now() } : record
+        );
+        updateDataState(databaseArray, true);
+        scheduleCloudSync();
       }
     }
 
     // --- JSON Database Import & Export Engines ---
     function exportDataToJSON() {
+      // 1. Synchronize basic config back to state.data row 1
+      const config = getConfig();
+      const configRow = state.data.find(d => d.index_ === 1)?.row;
+      if (configRow) {
+        configRow[bIdx.name] = config.userName;
+        configRow[bIdx.cur] = config.currency;
+        configRow[bIdx.bal] = config.startBalance;
+      }
+      
+      // 2. Clear sIdx columns in all rows of state.data
+      state.data.forEach(d => {
+        if (d.index_ > 1) {
+          d.row[sIdx.cat] = null;
+          d.row[sIdx.sub] = null;
+        }
+      });
+      
+      // 3. Write active subcategories from databaseArray back into sIdx columns of state.data
+      let categories = [];
+      databaseArray.forEach(r => {
+        if (r.table === 'categories' && !r.deleted) {
+          categories.push(r.data);
+        }
+      });
+      
+      let catIdx = 0;
+      for (let i = 2; i <= 200 && catIdx < categories.length; i++) {
+        const rowObj = state.data.find(d => d.index_ === i);
+        if (rowObj) {
+          rowObj.row[sIdx.cat] = categories[catIdx].category;
+          rowObj.row[sIdx.sub] = categories[catIdx].subcategory;
+          catIdx++;
+        }
+      }
+
       const databaseString = JSON.stringify(state.data, null, 2);
       const blob = new Blob([databaseString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       
       const a = document.createElement('a');
       a.href = url;
-      a.download = `antigravity_budget_backup_${formatISODate(new Date())}.json`;
+      a.download = `budget_tracker_backup_${formatISODate(new Date())}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    }
+
+    function confirmImportData() {
+      const ok = confirm(
+        '⚠️ Warning: Importing a backup will permanently overwrite ALL your current data — transactions, budgets, goals, categories, and settings.\n\nThis action cannot be undone.\n\nAre you sure you want to continue?'
+      );
+      if (ok) {
+        document.getElementById('import-json-file-input').click();
+      }
     }
 
     function importDataFromJSON(event) {
@@ -7018,16 +7719,69 @@
         try {
           const parsed = JSON.parse(e.target.result);
           if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].hasOwnProperty('index_') && parsed[0].hasOwnProperty('row')) {
+            // 1. Load state.data
             state.data = parsed;
             saveState();
+
+            // 2. Extract Config & Categories to databaseArray
+            const configRow = parsed.find(d => d.index_ === 1)?.row || [];
+            const now = Date.now();
+            
+            // Re-build basic config in databaseArray
+            databaseArray = databaseArray.map(r => {
+              if (r.id === 'config_basic') {
+                return {
+                  ...r,
+                  updatedAt: now,
+                  deleted: false,
+                  data: {
+                    userName: configRow[bIdx.name] || '',
+                    currency: configRow[bIdx.cur] || '$',
+                    startBalance: parseFloat(configRow[bIdx.bal]) || 0
+                  }
+                };
+              }
+              return r;
+            });
+            
+            // Extract custom categories
+            // First, soft-delete existing custom categories in databaseArray
+            databaseArray = databaseArray.map(r => {
+              if (r.table === 'categories') {
+                return { ...r, deleted: true, updatedAt: now };
+              }
+              return r;
+            });
+            
+            // Append new ones from parsed data
+            parsed.slice(1).forEach(d => {
+              const cat = d.row[sIdx.cat];
+              const sub = d.row[sIdx.sub];
+              if (cat && sub) {
+                const id = "category_" + d.index_ + "_" + Date.now().toString(36);
+                databaseArray.push({
+                  id,
+                  table: "categories",
+                  updatedAt: now,
+                  deleted: false,
+                  data: {
+                    category: cat,
+                    subcategory: sub
+                  }
+                });
+              }
+            });
+            
+            // Save local sandboxed data
+            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
+            
+            // Schedule sync to cloud
+            scheduleCloudSync();
+
             render();
-            alert('Database restored successfully!');
-            // Sync up with Google Drive
-            if (typeof pullAndMergeCloudData === 'function') {
-              pullAndMergeCloudData();
-            }
+            alert('Database restored successfully! ✅');
           } else {
-            alert('Invalid database format. Please upload a genuine Antigravity Backup file.');
+            alert('Invalid database format. Please upload a genuine backup file.');
           }
         } catch (err) {
           alert('Error parsing JSON backup file. Please make sure the file is not corrupted.');
@@ -7045,380 +7799,106 @@
     });
 
     document.getElementById('hamburger-btn').addEventListener('click', () => {
-      document.getElementById('sidebar').classList.toggle('mobile-open');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+      const isOpen = sidebar.classList.toggle('mobile-open');
+      if (isOpen) {
+        overlay.classList.add('visible');
+      } else {
+        overlay.classList.remove('visible');
+      }
+    });
+
+    // Close mobile drawer and overlay when clicking the overlay (outside navigation)
+    document.getElementById('sidebar-overlay').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('mobile-open');
+      document.getElementById('sidebar-overlay').classList.remove('visible');
     });
 
     // Close mobile drawer on clicking any tab
     document.querySelectorAll('.menu-item').forEach(btn => {
       btn.addEventListener('click', () => {
         document.getElementById('sidebar').classList.remove('mobile-open');
+        document.getElementById('sidebar-overlay').classList.remove('visible');
         selectTab(btn.getAttribute('data-tab'));
       });
     });
 
-
-    // =========================================================================
-    // SECTION: TOKEN-CACHED REALTIME CLOUD SYNC ENGINE
-    // =========================================================================
-    let databaseArray = []; // Mirror for synchronization logic
-    
-    // Global tracking of sync status for re-render preservation
-    let currentSyncStatusText = (localStorage.getItem('budget_has_linked_google') === 'true') ? "Connecting to Drive..." : "";
-    let currentSyncStatusType = (localStorage.getItem('budget_has_linked_google') === 'true') ? "active" : "";
-
-    const CLIENT_ID = '305632493984-9q07n0i677ku1btdds1scke8pam5ag3s.apps.googleusercontent.com';
-    const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
-
-    let tokenClient;
-    let gapiInited = false;
-    let gisimInited = false;
-    let accessToken = null;
-    let cloudFileId = null;
-    let silentRefreshTimeout = null;
-    let isRefreshingToken = false;
-    let needsManualReconnect = false;
-
-    // Helper to clear both local and cloud data (Destructive Overwrite)
-    function clearAllData() {
-      if (confirm('Are you sure you want to clear ALL local and cloud data? This cannot be undone.')) {
-        state.data = initializeDefaultData();
-        saveState();
-        render();
-        if (localStorage.getItem('budget_has_linked_google') === 'true' && accessToken) {
-          databaseArray = state.data;
-          autoUploadToCloud();
-        }
-      }
-    }
-
-    function setSyncStatus(text, type = '') {
-        currentSyncStatusText = text;
-        currentSyncStatusType = type;
-        const ids = ['syncStatusIndicator', 'syncStatusIndicatorSetup', 'syncStatusIndicatorMobile', 'syncStatusIndicatorSidebar'];
-        ids.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                if (!text) {
-                    el.style.display = 'none';
-                } else {
-                    el.style.display = 'inline-flex';
-                    el.innerText = text;
-                    el.className = 'sync-status ' + type;
-
-                    if (type !== 'error') {
-                        el.style.cursor = 'default';
-                        el.onclick = null;
-                    } else {
-                        el.style.cursor = "pointer";
-                        el.onclick = () => {
-                            if (needsManualReconnect) {
-                                setSyncStatus("Connecting...", "active");
-                                tokenClient.requestAccessToken({ prompt: '' });
-                            } else {
-                                setSyncStatus("Syncing...", "active");
-                                pullAndMergeCloudData();
-                            }
-                        };
-                    }
-                }
-            }
-        });
-    }
-
-    function gapiLoaded() {
-        gapi.load('client', async () => {
-            await gapi.client.init({ discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
-            gapiInited = true;
-            evaluateRoutingSession();
-        });
-    }
-
-    function gisLoaded() {
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
-            scope: SCOPES,
-            callback: async (resp) => {
-                isRefreshingToken = false;
-                if (silentRefreshTimeout) {
-                    clearTimeout(silentRefreshTimeout);
-                    silentRefreshTimeout = null;
-                }
-
-                if (resp.error !== undefined) {
-                    needsManualReconnect = true;
-                    triggerReconnectState();
-                    return;
-                }
-
-                needsManualReconnect = false;
-                accessToken = resp.access_token;
-                gapi.client.setToken({ access_token: accessToken });
-
-                localStorage.setItem('budget_google_access_token', accessToken);
-                localStorage.setItem('budget_google_token_expiry', (Date.now() + (resp.expires_in * 1000)).toString());
-                localStorage.setItem('budget_has_linked_google', 'true');
-
-                updateAuthUI(true);
-                setSyncStatus("Cloud Synced ✅", "active");
-
-                await pullAndMergeCloudData();
-            },
-        });
-        gisimInited = true;
-        evaluateRoutingSession();
-    }
-    window.addEventListener('load', () => { gapiLoaded(); gisLoaded(); });
-
-    function evaluateRoutingSession() {
-        if (!gapiInited || !gisimInited) return;
-
-        if (localStorage.getItem('budget_has_linked_google') === 'true') {
-            const cachedToken = localStorage.getItem('budget_google_access_token');
-            const expiry = parseInt(localStorage.getItem('budget_google_token_expiry') || '0');
-
-            if (cachedToken && Date.now() < expiry) {
-                // TOKEN IS VALID
-                accessToken = cachedToken;
-                gapi.client.setToken({ access_token: accessToken });
-                updateAuthUI(true);
-                setSyncStatus("Cloud Synced ✅", "active");
-                pullAndMergeCloudData();
-            } else {
-                if (isRefreshingToken) return;
-
-                // TOKEN EXPIRED
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
-
-                updateAuthUI(true);
-
-                if (isMobile) {
-                    // INSTANT FALLBACK FOR MOBILE
-                    needsManualReconnect = true;
-                    triggerReconnectState();
-                } else {
-                    // DESKTOP ONLY: Attempt the silent refresh
-                    isRefreshingToken = true;
-                    setSyncStatus("Reconnecting...", "active");
-
-                    silentRefreshTimeout = setTimeout(() => {
-                        console.warn("Silent refresh timed out. Forcing manual reconnect button.");
-                        isRefreshingToken = false;
-                        needsManualReconnect = true;
-                        triggerReconnectState();
-                    }, 4000);
-
-                    tokenClient.requestAccessToken({ prompt: 'none' });
-                }
-            }
-        } else {
-            // NEVER CONNECTED OR DISCONNECTED
-            updateAuthUI(false);
-        }
-    }
-
-    function triggerReconnectState() {
-        setSyncStatus("Session Expired - Tap to Reconnect 🔄", "error");
-    }
-
-    function handleAuthFailure() {
-        localStorage.removeItem('budget_google_access_token');
-        updateAuthUI(false);
-    }
-
-    function updateAuthUI(isConnected) {
-        const authBtn = document.getElementById('authBtn');
-        if (authBtn) {
-            authBtn.disabled = false; // Always unlock the button once state resolves
-
-            if (isConnected) {
-                authBtn.textContent = 'Disconnect';
-                authBtn.className = 'btn btn-danger';
-            } else {
-                authBtn.textContent = 'Connect to Google Drive';
-                authBtn.className = 'btn btn-primary';
-                setSyncStatus("", "");
-            }
-        }
-    }
-
-    function handleAuthClick() {
-        if (localStorage.getItem('budget_has_linked_google') === 'true') {
-            // DISCONNECT LOGIC (Local Device Only)
-            accessToken = null;
-            isRefreshingToken = false;
-            needsManualReconnect = false;
-
-            localStorage.setItem('budget_has_linked_google', 'false');
-            localStorage.removeItem('budget_google_access_token');
-            localStorage.removeItem('budget_google_token_expiry');
-
-            updateAuthUI(false);
-
-            // Optional: Reset state and re-initialize default local state on disconnect
-            state.data = initializeDefaultData();
-            saveState();
-            render();
-        } else {
-            // CONNECT LOGIC
-            if (!gapiInited || !gisimInited) return alert("System booting. Please retry in a moment.");
-            setSyncStatus("Connecting...", "active");
-            tokenClient.requestAccessToken({ prompt: 'select_account consent' });
-        }
-    }
-
-    async function pullAndMergeCloudData() {
-        if (!accessToken) return;
-        try {
-            const response = await gapi.client.drive.files.list({
-                q: "name = 'simple_budget_backup.json' and trashed = false",
-                spaces: 'appDataFolder',
-                fields: 'files(id, name)'
-            });
-
-            const files = response.result.files;
-            cloudFileId = files.length > 0 ? files[0].id : null;
-
-            if (cloudFileId) {
-                const fileData = await gapi.client.drive.files.get({ fileId: cloudFileId, alt: 'media' });
-                const remotePayload = fileData.result;
-
-                // Look for the records array
-                if (remotePayload && remotePayload.records) {
-                    const cloudRecords = remotePayload.records;
-                    
-                    const mergedMap = new Map();
-                    cloudRecords.forEach(item => mergedMap.set(item.index_ || item.id, item));
-
-                    // Merge local into map
-                    let localHasNewerEdits = false;
-                    state.data.forEach(localItem => {
-                        const key = localItem.index_;
-                        const cloudItem = mergedMap.get(key);
-                        
-                        if (!cloudItem) {
-                            mergedMap.set(key, localItem);
-                            localHasNewerEdits = true;
-                        } else {
-                            if (localItem.updatedAt && cloudItem.updatedAt && localItem.updatedAt > cloudItem.updatedAt) {
-                                mergedMap.set(key, localItem);
-                                localHasNewerEdits = true;
-                            }
-                        }
-                    });
-
-                    const finalMergedRecords = Array.from(mergedMap.values()).sort((a, b) => a.index_ - b.index_);
-                    
-                    // BRIDGE: Write back merged records into state engine
-                    state.data = finalMergedRecords;
-                    localStorage.setItem('budget_tracker_sheet_data', JSON.stringify(state.data)); // Fast local save without triggering autoUpload infinite loops
-                    render();
-
-                    databaseArray = finalMergedRecords;
-
-                    if (localHasNewerEdits) {
-                        await autoUploadToCloud();
-                    }
-                }
-            } else {
-                await autoUploadToCloud();
-            }
-            setSyncStatus("Cloud Synced ✅", "active");
-        } catch (err) {
-            console.error("Sync pull execution exception:", err);
-            const msg = !navigator.onLine ? "Sync paused - Offline\nTap to reconnect" : "Sync Paused ⚠️";
-            setSyncStatus(msg, "error");
-            if (err.status === 401) {
-                localStorage.setItem('budget_google_token_expiry', '0');
-                evaluateRoutingSession();
-            }
-        }
-    }
-
-    async function autoUploadToCloud() {
-        if (localStorage.getItem('budget_has_linked_google') !== 'true' || !accessToken) return;
-        setSyncStatus("Saving to Cloud...", "active");
-
-        try {
-            if (!cloudFileId) {
-                const response = await gapi.client.drive.files.list({
-                    q: "name = 'simple_budget_backup.json' and trashed = false",
-                    spaces: 'appDataFolder',
-                    fields: 'files(id)'
-                });
-                if (response.result.files.length > 0) {
-                    cloudFileId = response.result.files[0].id;
-                } else {
-                    const metaResp = await gapi.client.drive.files.create({
-                        resource: { name: 'simple_budget_backup.json', parents: ['appDataFolder'] },
-                        fields: 'id'
-                    });
-                    cloudFileId = metaResp.result.id;
-                }
-            }
-
-            // Prepare payload
-            // Add a timestamp to state data records that are modified so conflict resolution works
-            state.data.forEach(item => {
-                if (!item.updatedAt) {
-                    item.updatedAt = Date.now();
-                }
-            });
-
-            const payload = { records: state.data };
-
-            await gapi.client.request({
-                path: `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=media`,
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            setSyncStatus("Cloud Synced ✅", "active");
-        } catch (err) {
-            console.error("Cloud engine commit intercept:", err);
-            const msg = !navigator.onLine ? "Sync paused - Offline\nTap to reconnect" : "Sync Paused ⚠️";
-            setSyncStatus(msg, "error");
-            if (err.status === 401) {
-                localStorage.setItem('budget_google_token_expiry', '0');
-                evaluateRoutingSession();
-            }
-        }
-    }
-
-    // Set the initial clock so it doesn't double-trigger on first load
-    let lastInteractionSyncTime = Date.now();
-    const SYNC_COOLDOWN_MS = 300000;
-
-    function handleMicroInteraction() {
-        if (localStorage.getItem('budget_has_linked_google') !== 'true' || !accessToken) return;
-        if (isRefreshingToken || needsManualReconnect) return;
-
-        const expiry = parseInt(localStorage.getItem('budget_google_token_expiry') || '0');
-        if (Date.now() >= expiry) {
-            evaluateRoutingSession();
-            return;
-        }
-
-        const now = Date.now();
-        if (now - lastInteractionSyncTime > SYNC_COOLDOWN_MS) {
-            lastInteractionSyncTime = now;
-            setSyncStatus("Checking...", "active");
-            pullAndMergeCloudData();
-        }
-    }
-
-    // Listeners for user interactions to trigger sync cooldown refreshes
-    window.addEventListener('mousemove', handleMicroInteraction);
-    window.addEventListener('keydown', handleMicroInteraction);
-    window.addEventListener('touchstart', handleMicroInteraction, { passive: true });
-    window.addEventListener('focus', handleMicroInteraction);
-
     // --- App Init ---
     window.addEventListener('DOMContentLoaded', () => {
-      // INSTANT UI PRE-LOADER: Flip the button state before Google scripts load
-      if (localStorage.getItem('budget_has_linked_google') === 'true') {
+      // 1. INSTANT UI PRE-LOADER (Rule 6 Sandboxing)
+      if (localStorage.getItem(STORAGE_KEY_HAS_LINKED) === 'true') {
+        const authBtn = document.getElementById('authBtn');
+        const authBtnCard = document.getElementById('authBtnSetupCard');
+        if (authBtn) {
+          authBtn.textContent = 'Syncing...';
+          authBtn.className = 'btn-secondary btn-sm';
+          authBtn.disabled = true;
+        }
+        if (authBtnCard) {
+          authBtnCard.textContent = 'Syncing...';
+          authBtnCard.className = 'btn btn-secondary';
+          authBtnCard.disabled = true;
+        }
         setSyncStatus("Connecting to Drive...", "active");
       }
+
+      // 2. Load databaseArray sync state (Rule 6 Sandboxing)
+      const storedData = localStorage.getItem(STORAGE_KEY_DATA);
+      if (storedData) {
+        try { databaseArray = JSON.parse(storedData); } catch (e) { databaseArray = []; }
+      }
+      
+      // Rule 7 check: populating default configuration basic record if databaseArray is empty
+      if (!databaseArray || databaseArray.length === 0) {
+        databaseArray = [
+          {
+            id: "config_basic",
+            table: "config_basic",
+            updatedAt: 0, // Baseline baseline updatedAt of 0
+            deleted: false,
+            data: {
+              userName: "",
+              currency: "$",
+              startBalance: 0
+            }
+          }
+        ];
+        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
+      }
+
+      // ── Mobile bottom nav bar fix ───────────────────────────────────────────
+      // Android 3-button nav bar doesn't set env(safe-area-inset-bottom).
+      // We detect the actual bottom gap via visualViewport and write it to
+      // --safe-bottom so all scroll areas always clear the nav bar.
+      (function applyMobileBottomInset() {
+        const root = document.documentElement;
+        let lastInset = 0;
+
+        function update() {
+          if (!window.visualViewport) return;
+          // When keyboard is closed: window.innerHeight - visualViewport.height
+          // is the nav bar height. offsetTop accounts for keyboard pushing viewport.
+          const gap = window.innerHeight
+            - window.visualViewport.height
+            - (window.visualViewport.offsetTop || 0);
+          // Only treat positive gaps as nav bar (negative = scrolled page offset)
+          const inset = Math.max(0, gap);
+          if (Math.abs(inset - lastInset) > 2) { // debounce tiny jitter
+            lastInset = inset;
+            root.style.setProperty('--safe-bottom', inset + 'px');
+          }
+        }
+
+        // Run on load and on every viewport resize (nav bar show/hide)
+        update();
+        window.addEventListener('resize', update);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', update);
+          window.visualViewport.addEventListener('scroll', update);
+        }
+      })();
+      // ────────────────────────────────────────────────────────────────────────
 
       // Globally prevent scrolling mouse wheel or trackpad from changing focused number values
       document.addEventListener('wheel', (e) => {
@@ -7453,6 +7933,34 @@
       loadState();
       updateSidebarCollapseState();
       render();
+
+      // Sync recurring schedules sidebar height to calendar box height
+      // Only applied in the 2-column desktop layout to prevent Android scrollbar artifacts on mobile
+      function syncCalendarSidebarHeight() {
+        const calBox = document.getElementById('calendar-box');
+        const sidebar = document.getElementById('schedules-sidebar');
+        if (!calBox || !sidebar) return;
+        if (window.innerWidth >= 1201) {
+          sidebar.style.maxHeight = calBox.offsetHeight + 'px';
+          sidebar.style.overflowY = 'auto';
+        } else {
+          sidebar.style.maxHeight = '';
+          sidebar.style.overflowY = '';
+        }
+      }
+      syncCalendarSidebarHeight();
+      window.addEventListener('resize', syncCalendarSidebarHeight);
+
+      // Window resize listener to sync layout state when crossing mobile/tablet boundary
+      let lastIsMobileOrTablet = window.innerWidth <= 1024;
+      window.addEventListener('resize', () => {
+        const isMobileOrTablet = window.innerWidth <= 1024;
+        if (isMobileOrTablet !== lastIsMobileOrTablet) {
+          lastIsMobileOrTablet = isMobileOrTablet;
+          updateSidebarCollapseState();
+          render();
+        }
+      });
     });
   </script>
 </body>
