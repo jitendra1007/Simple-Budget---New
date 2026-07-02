@@ -6454,10 +6454,10 @@
                 </div>
                 <p style="font-size: 0.8rem; color: var(--slate-500); margin: 0;">Backup data on your device</p>
                 <div style="display: flex; gap: 0.75rem;">
-                  <button onclick="exportDataToJSON()" style="flex: 1; padding: 0.6rem 0; border: 1px solid var(--slate-200); border-radius: 0.6rem; background: white; font-size: 0.8rem; font-weight: 700; color: var(--slate-700); cursor: pointer;">Export data</button>
+                  <button onclick="exportData()" style="flex: 1; padding: 0.6rem 0; border: 1px solid var(--slate-200); border-radius: 0.6rem; background: white; font-size: 0.8rem; font-weight: 700; color: var(--slate-700); cursor: pointer;">Export data</button>
                   <div class="file-input-wrapper" style="flex: 1; position: relative;">
-                    <button onclick="confirmImportData()" style="width: 100%; padding: 0.6rem 0; border: 1px solid var(--slate-200); border-radius: 0.6rem; background: white; font-size: 0.8rem; font-weight: 700; color: var(--slate-700); cursor: pointer;">Import data</button>
-                    <input type="file" id="import-json-file-input" accept=".json" onchange="importDataFromJSON(event)" style="display:none;" />
+                    <button onclick="triggerImport()" style="width: 100%; padding: 0.6rem 0; border: 1px solid var(--slate-200); border-radius: 0.6rem; background: white; font-size: 0.8rem; font-weight: 700; color: var(--slate-700); cursor: pointer;">Import data</button>
+                    <input type="file" id="importFile" accept=".json" onchange="importData(event)" style="display:none;" />
                   </div>
                 </div>
                 <p style="font-size: 0.72rem; color: var(--slate-400); margin: 0; font-style: italic;">No automatic sync across devices. Data is stored locally, and clearing browser cache deletes your data.</p>
@@ -7647,139 +7647,113 @@
     }
 
     // --- JSON Database Import & Export Engines ---
-    function exportDataToJSON() {
-      // 1. Synchronize basic config back to state.data row 1
-      const config = getConfig();
-      const configRow = state.data.find(d => d.index_ === 1)?.row;
-      if (configRow) {
-        configRow[bIdx.name] = config.userName;
-        configRow[bIdx.cur] = config.currency;
-        configRow[bIdx.bal] = config.startBalance;
-      }
-      
-      // 2. Clear sIdx columns in all rows of state.data
+    // Exports full databaseArray envelopes PLUS state.data rows wrapped as 'sheet_rows' envelopes.
+    // This satisfies the Data Envelope Protocol (Rule 1) while preserving all tab data.
+    function exportData() {
+      if (!databaseArray.length && !state.data.length) return alert("No data to export.");
+      const now = Date.now();
+
+      // 1. Start with all existing databaseArray envelopes (config_basic, categories, etc.)
+      const envelopes = databaseArray.map(r => ({ ...r }));
+
+      // 2. Wrap every state.data row as a 'sheet_rows' envelope so other-tab data is preserved
       state.data.forEach(d => {
-        if (d.index_ > 1) {
-          d.row[sIdx.cat] = null;
-          d.row[sIdx.sub] = null;
-        }
+        envelopes.push({
+          id: "row_" + d.index_,
+          table: "sheet_rows",
+          updatedAt: now,
+          deleted: false,
+          data: { index_: d.index_, row: d.row }
+        });
       });
-      
-      // 3. Write active subcategories from databaseArray back into sIdx columns of state.data
-      let categories = [];
-      databaseArray.forEach(r => {
-        if (r.table === 'categories' && !r.deleted) {
-          categories.push(r.data);
-        }
-      });
-      
-      let catIdx = 0;
-      for (let i = 2; i <= 200 && catIdx < categories.length; i++) {
-        const rowObj = state.data.find(d => d.index_ === i);
-        if (rowObj) {
-          rowObj.row[sIdx.cat] = categories[catIdx].category;
-          rowObj.row[sIdx.sub] = categories[catIdx].subcategory;
-          catIdx++;
-        }
-      }
 
-      const databaseString = JSON.stringify(state.data, null, 2);
-      const blob = new Blob([databaseString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(envelopes, null, 2));
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `budget_tracker_backup_${formatISODate(new Date())}.json`;
-      document.body.appendChild(a);
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", EXPORT_FILE_NAME);
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     }
 
-    function confirmImportData() {
-      const ok = confirm(
-        '⚠️ Warning: Importing a backup will permanently overwrite ALL your current data — transactions, budgets, goals, categories, and settings.\n\nThis action cannot be undone.\n\nAre you sure you want to continue?'
-      );
-      if (ok) {
-        document.getElementById('import-json-file-input').click();
+    // Trigger the file picker after user confirmation
+    function triggerImport() {
+      if (confirm('⚠️ Warning: Importing a backup will permanently overwrite ALL your current data — transactions, budgets, goals, categories, and settings.\n\nThis action cannot be undone.\n\nAre you sure you want to continue?')) {
+        document.getElementById('importFile').click();
       }
     }
 
-    function importDataFromJSON(event) {
+    // Import Timestamp Update Protocol (Rule 5): set updatedAt = Date.now() on all records.
+    // Supports both new envelope format and legacy state.data format for backwards compatibility.
+    function importData(event) {
       const file = event.target.files[0];
       if (!file) return;
-      
+      event.target.value = '';
+
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
           const parsed = JSON.parse(e.target.result);
-          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].hasOwnProperty('index_') && parsed[0].hasOwnProperty('row')) {
-            // 1. Load state.data
+          const now = Date.now();
+
+          // --- New envelope format ---
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].hasOwnProperty('id') && parsed[0].hasOwnProperty('table')) {
+            // Rule 5: stamp all records with current time so they win conflict resolution
+            const stamped = parsed.map(item => ({ ...item, updatedAt: now }));
+
+            // Separate envelope types
+            const settingsEnvelopes = stamped.filter(r => r.table === 'config_basic' || r.table === 'categories');
+            const sheetRowEnvelopes = stamped.filter(r => r.table === 'sheet_rows');
+            const otherEnvelopes = stamped.filter(r => r.table !== 'config_basic' && r.table !== 'categories' && r.table !== 'sheet_rows');
+
+            // Restore databaseArray: keep existing records not covered by import, overlay imported ones
+            const importedIds = new Set(settingsEnvelopes.map(r => r.id));
+            const keptExisting = databaseArray.filter(r => !importedIds.has(r.id));
+            databaseArray = [...keptExisting, ...settingsEnvelopes, ...otherEnvelopes];
+            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
+
+            // Restore state.data from sheet_rows envelopes
+            if (sheetRowEnvelopes.length > 0) {
+              state.data = sheetRowEnvelopes.map(env => ({ index_: env.data.index_, row: env.data.row }));
+              saveState();
+            }
+
+            scheduleCloudSync();
+            render();
+            alert('Database restored successfully! ✅');
+
+          // --- Legacy format (index_/row array) — backwards compatibility ---
+          } else if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].hasOwnProperty('index_') && parsed[0].hasOwnProperty('row')) {
             state.data = parsed;
             saveState();
 
-            // 2. Extract Config & Categories to databaseArray
+            // Extract config from legacy row 1
             const configRow = parsed.find(d => d.index_ === 1)?.row || [];
-            const now = Date.now();
-            
-            // Re-build basic config in databaseArray
             databaseArray = databaseArray.map(r => {
               if (r.id === 'config_basic') {
-                return {
-                  ...r,
-                  updatedAt: now,
-                  deleted: false,
-                  data: {
-                    userName: configRow[bIdx.name] || '',
-                    currency: configRow[bIdx.cur] || '$',
-                    startBalance: parseFloat(configRow[bIdx.bal]) || 0
-                  }
-                };
+                return { ...r, updatedAt: now, deleted: false, data: { userName: configRow[bIdx.name] || '', currency: configRow[bIdx.cur] || '$', startBalance: parseFloat(configRow[bIdx.bal]) || 0 } };
               }
+              if (r.table === 'categories') return { ...r, deleted: true, updatedAt: now };
               return r;
             });
-            
-            // Extract custom categories
-            // First, soft-delete existing custom categories in databaseArray
-            databaseArray = databaseArray.map(r => {
-              if (r.table === 'categories') {
-                return { ...r, deleted: true, updatedAt: now };
-              }
-              return r;
-            });
-            
-            // Append new ones from parsed data
+
+            // Extract legacy categories
             parsed.slice(1).forEach(d => {
               const cat = d.row[sIdx.cat];
               const sub = d.row[sIdx.sub];
               if (cat && sub) {
-                const id = "category_" + d.index_ + "_" + Date.now().toString(36);
-                databaseArray.push({
-                  id,
-                  table: "categories",
-                  updatedAt: now,
-                  deleted: false,
-                  data: {
-                    category: cat,
-                    subcategory: sub
-                  }
-                });
+                databaseArray.push({ id: "category_" + d.index_ + "_" + now.toString(36), table: "categories", updatedAt: now, deleted: false, data: { category: cat, subcategory: sub } });
               }
             });
-            
-            // Save local sandboxed data
-            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
-            
-            // Schedule sync to cloud
-            scheduleCloudSync();
 
+            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(databaseArray));
+            scheduleCloudSync();
             render();
             alert('Database restored successfully! ✅');
+
           } else {
-            alert('Invalid database format. Please upload a genuine backup file.');
+            alert('Import failed: JSON structure is incorrect.');
           }
         } catch (err) {
-          alert('Error parsing JSON backup file. Please make sure the file is not corrupted.');
+          alert('Invalid JSON file. Please make sure the file is not corrupted.');
         }
       };
       reader.readAsText(file);
@@ -7960,3 +7934,4 @@
   </script>
 </body>
 </html>
+  
